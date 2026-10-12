@@ -682,9 +682,16 @@
             subject: document.querySelector("#email-subject").value,
             body: document.querySelector("#email-body").value,
           });
+          const appNotificationSummary = result.appNotifications
+            ? ` App-Mitteilungen: ${result.appNotifications.created} gespeichert${
+              result.appNotifications.pushConfigured
+                ? `, ${result.appNotifications.pushSent} Push gesendet${result.appNotifications.pushFailed ? `, ${result.appNotifications.pushFailed} fehlgeschlagen` : ""}.`
+                : "; Push noch nicht vollständig konfiguriert."
+            }`
+            : "";
           setStatus(emailStatus, result.failed?.length
-            ? `${result.sent} E-Mail${result.sent === 1 ? "" : "s"} gesendet; ${result.failed.length} fehlgeschlagen: ${result.failed.map((failure) => `${failure.email} (${failure.error})`).join("; ")}`
-            : `${result.sent} E-Mail${result.sent === 1 ? "" : "s"} von wertweitoffiziell@gmail.com gesendet.`,
+            ? `${result.sent} E-Mail${result.sent === 1 ? "" : "s"} gesendet; ${result.failed.length} fehlgeschlagen: ${result.failed.map((failure) => `${failure.email} (${failure.error})`).join("; ")}${appNotificationSummary}`
+            : `${result.sent} E-Mail${result.sent === 1 ? "" : "s"} von wertweitoffiziell@gmail.com gesendet.${appNotificationSummary}`,
             result.failed?.length ? "error" : "success");
           if (audience === "selected") {
             userIds.forEach((id) => selectedUserIds.delete(id));

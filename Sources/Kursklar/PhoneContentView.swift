@@ -1,6 +1,7 @@
 #if os(iOS)
 import StoreKit
 import SwiftUI
+import UIKit
 import UserNotifications
 
 private enum CurrencySide: String, Identifiable {
@@ -22,6 +23,7 @@ private enum AppSheet: Identifiable {
     case legal(LegalPage)
     case pro
     case support
+    case notifications
 
     var id: String {
         switch self {
@@ -29,6 +31,7 @@ private enum AppSheet: Identifiable {
         case .legal(let page): "legal-\(page.id)"
         case .pro: "pro"
         case .support: "support"
+        case .notifications: "notifications"
         }
     }
 }
@@ -120,6 +123,8 @@ struct PhoneContentView: View {
             await authStore.recordAppOpen()
             await authStore.refreshEmailUpdatesPreference()
             await authStore.refreshSupportThreads()
+            await authStore.refreshAppNotifications()
+            await notificationTester.registerIfAuthorized()
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             withAnimation(.easeOut(duration: 0.25)) {
                 showLoadingPage = false
@@ -135,9 +140,14 @@ struct PhoneContentView: View {
                     await authStore.refreshEmailUpdatesPreference()
                     await authStore.recordAppOpen()
                     await authStore.refreshSupportThreads()
+                    await authStore.refreshAppNotifications()
                 }
                 Task { await subscriptionStore.refreshEntitlements() }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .wertweitRemotePushToken)) { notification in
+            guard let token = notification.object as? String else { return }
+            Task { await authStore.registerPushToken(token) }
         }
         .onChange(of: subscriptionStore.hasProAccess) { hasProAccess in
             if hasProAccess, activeSheet?.id == AppSheet.pro.id {
@@ -165,6 +175,8 @@ struct PhoneContentView: View {
                 )
             case .support:
                 supportView
+            case .notifications:
+                AppNotificationInboxView(store: authStore)
             }
         }
         .alert("Kursziel erreicht", isPresented: Binding(
@@ -252,6 +264,18 @@ struct PhoneContentView: View {
                     Label("Support", systemImage: "questionmark.circle")
                 }
 
+                Button {
+                    activeSheet = .notifications
+                    Task { await authStore.refreshAppNotifications() }
+                } label: {
+                    Label(
+                        authStore.appNotifications.contains(where: { $0.readAt == nil })
+                            ? "Benachrichtigungen (\(authStore.appNotifications.filter { $0.readAt == nil }.count))"
+                            : "Benachrichtigungen",
+                        systemImage: "bell"
+                    )
+                }
+
                 if let email = authStore.session?.user.email {
                     Text(email)
                         .font(.caption)
@@ -294,6 +318,12 @@ struct PhoneContentView: View {
                     Task { notificationTestMessage = await notificationTester.sendTestNotification() }
                 } label: {
                     Label("Test-Benachrichtigung", systemImage: "bell.badge")
+                }
+
+                Button {
+                    Task { notificationTestMessage = await notificationTester.enablePushNotifications() }
+                } label: {
+                    Label("Push-Benachrichtigungen aktivieren", systemImage: "bell.and.waves.left.and.right")
                 }
 
                 Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
@@ -1138,12 +1168,115 @@ private final class LocalNotificationTester: NSObject, ObservableObject, UNUserN
             return "Die Test-Benachrichtigung konnte nicht geplant werden: \(error.localizedDescription)"
         }
     }
+
+    func enablePushNotifications() async -> String {
+        let center = UNUserNotificationCenter.current()
+        do {
+            let settings = await center.notificationSettings()
+            let authorized: Bool
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                authorized = true
+            case .denied:
+                return "Benachrichtigungen sind für Wertweit ausgeschaltet. Aktiviere sie in den iPhone-Einstellungen."
+            case .notDetermined:
+                authorized = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            @unknown default:
+                return "Der Benachrichtigungsstatus konnte nicht ermittelt werden."
+            }
+            guard authorized else {
+                return "Ohne Erlaubnis kann Wertweit keine Push-Benachrichtigungen anzeigen."
+            }
+            await MainActor.run {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+            return "Push-Registrierung gestartet. Für echte Server-Mitteilungen muss die App mit aktivierter Apple-Push-Konfiguration installiert sein."
+        } catch {
+            return "Push-Benachrichtigungen konnten nicht aktiviert werden: \(error.localizedDescription)"
+        }
+    }
+
+    func registerIfAuthorized() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .authorized ||
+            settings.authorizationStatus == .provisional ||
+            settings.authorizationStatus == .ephemeral else { return }
+        await MainActor.run {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner, .sound, .list])
+    }
+}
+
+private struct AppNotificationInboxView: View {
+    @ObservedObject var store: SupabaseSessionStore
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if let error = store.appNotificationError {
+                    Text(error)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.appNotifications.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "bell")
+                            .font(.system(size: 30))
+                            .foregroundStyle(.secondary)
+                        Text("Keine Benachrichtigungen")
+                            .font(.headline)
+                        Text("Nachrichten von Wertweit erscheinen hier.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(store.appNotifications) { notification in
+                        Button {
+                            if notification.readAt == nil {
+                                Task { await store.markAppNotificationsRead([notification.id]) }
+                            }
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                Circle()
+                                    .fill(notification.readAt == nil ? Color.green : Color.clear)
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 6)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(notification.title)
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Text(notification.body)
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.secondary)
+                                    Text(notification.createdAt)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle("Benachrichtigungen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Aktualisieren") {
+                        Task { await store.refreshAppNotifications() }
+                    }
+                }
+            }
+        }
+        .task { await store.refreshAppNotifications() }
     }
 }
 #endif

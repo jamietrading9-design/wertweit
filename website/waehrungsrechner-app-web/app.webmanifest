@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Wertweit – Währungsrechner",
+  "short_name": "Wertweit",
+  "description": "Währungen umrechnen und Reiseausgaben planen.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f4ef",
+  "theme_color": "#f2f4ef",
+  "icons": [
+    {
+      "src": "../assets/wertweit-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

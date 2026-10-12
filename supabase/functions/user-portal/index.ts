@@ -72,6 +72,75 @@ Deno.serve(async (request) => {
     });
   }
 
+  if (payload.action === "list-notifications") {
+    const { data: notifications, error } = await supabase
+      .from("app_notifications")
+      .select("id, title, body, kind, created_at, read_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      console.error("Could not load app notifications", error.message);
+      return respond({ error: "App notifications could not be loaded" }, 502);
+    }
+    return respond({ notifications: notifications ?? [] });
+  }
+
+  if (payload.action === "mark-notifications-read") {
+    if (!Array.isArray(payload.ids) || payload.ids.length > 50 ||
+        payload.ids.some((id) => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))) {
+      return respond({ error: "Invalid notification identifiers" }, 400);
+    }
+    if (payload.ids.length === 0) return respond({ updated: 0 });
+    const { data, error } = await supabase
+      .from("app_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .in("id", payload.ids)
+      .is("read_at", null)
+      .select("id");
+    if (error) {
+      console.error("Could not mark app notifications read", error.message);
+      return respond({ error: "App notifications could not be updated" }, 502);
+    }
+    return respond({ updated: data?.length ?? 0 });
+  }
+
+  if (payload.action === "register-push-token") {
+    if (typeof payload.token !== "string" || !/^[0-9a-f]{64}$/i.test(payload.token)) {
+      return respond({ error: "Invalid push token" }, 400);
+    }
+    const { error } = await supabase
+      .from("device_push_tokens")
+      .upsert({
+        user_id: userId,
+        device_token: payload.token.toLowerCase(),
+        enabled: true,
+        updated_at: new Date().toISOString(),
+      });
+    if (error) {
+      console.error("Could not register device push token", error.message);
+      return respond({ error: "Push notifications could not be enabled" }, 502);
+    }
+    return respond({ registered: true });
+  }
+
+  if (payload.action === "unregister-push-token") {
+    if (typeof payload.token !== "string" || !/^[0-9a-f]{64}$/i.test(payload.token)) {
+      return respond({ error: "Invalid push token" }, 400);
+    }
+    const { error } = await supabase
+      .from("device_push_tokens")
+      .delete()
+      .eq("user_id", userId)
+      .eq("device_token", payload.token.toLowerCase());
+    if (error) {
+      console.error("Could not unregister device push token", error.message);
+      return respond({ error: "Push notifications could not be disabled" }, 502);
+    }
+    return respond({ unregistered: true });
+  }
+
   if (payload.action === "get-email-updates") {
     const { data: preference, error } = await supabase
       .from("email_update_preferences")

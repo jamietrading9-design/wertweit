@@ -47,6 +47,24 @@ struct WertweitSupportThread: Decodable, Identifiable {
     }
 }
 
+struct WertweitAppNotification: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let body: String
+    let kind: String
+    let createdAt: String
+    let readAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case body
+        case kind
+        case createdAt = "created_at"
+        case readAt = "read_at"
+    }
+}
+
 @MainActor
 final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var session: WertweitAuthSession?
@@ -65,6 +83,8 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var emailConfirmationEmail = ""
     @Published private(set) var emailUpdatesSubscribed = false
     @Published private(set) var supportThreads: [WertweitSupportThread] = []
+    @Published private(set) var appNotifications: [WertweitAppNotification] = []
+    @Published private(set) var appNotificationError: String?
     @Published private(set) var supportStatusMessage: String?
     @Published private(set) var supportStatusIsError = false
 
@@ -312,6 +332,54 @@ final class SupabaseSessionStore: ObservableObject {
         } catch {
             supportStatusMessage = "Support-Nachrichten konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
             supportStatusIsError = true
+        }
+    }
+
+    func refreshAppNotifications() async {
+        guard session != nil else { return }
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = session else { throw SupabaseRequestError.incompleteSession }
+            let data = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: PortalAction(action: "list-notifications"),
+                accessToken: currentSession.accessToken
+            )
+            appNotifications = try JSONDecoder().decode(AppNotificationsResponse.self, from: data).notifications
+            appNotificationError = nil
+        } catch {
+            appNotificationError = "Benachrichtigungen konnten nicht geladen werden. Prüfe deine Verbindung."
+        }
+    }
+
+    func markAppNotificationsRead(_ ids: [String]) async {
+        guard session != nil, !ids.isEmpty else { return }
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = session else { throw SupabaseRequestError.incompleteSession }
+            _ = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: MarkNotificationsReadRequest(action: "mark-notifications-read", ids: ids),
+                accessToken: currentSession.accessToken
+            )
+            await refreshAppNotifications()
+        } catch {
+            appNotificationError = "Der Lesestatus konnte nicht gespeichert werden."
+        }
+    }
+
+    func registerPushToken(_ token: String) async {
+        guard session != nil else { return }
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = session else { throw SupabaseRequestError.incompleteSession }
+            _ = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: PushTokenRequest(action: "register-push-token", token: token),
+                accessToken: currentSession.accessToken
+            )
+        } catch {
+            statusMessage = "Push-Benachrichtigungen konnten nicht registriert werden. Bitte versuche es erneut."
         }
     }
 
@@ -582,6 +650,20 @@ private struct EmptyRequest: Encodable {}
 
 private struct PortalAction: Encodable {
     let action: String
+}
+
+private struct PushTokenRequest: Encodable {
+    let action: String
+    let token: String
+}
+
+private struct MarkNotificationsReadRequest: Encodable {
+    let action: String
+    let ids: [String]
+}
+
+private struct AppNotificationsResponse: Decodable {
+    let notifications: [WertweitAppNotification]
 }
 
 private struct SetEmailUpdatesRequest: Encodable {

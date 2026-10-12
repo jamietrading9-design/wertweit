@@ -75,7 +75,7 @@ Falls Google kein App-Passwort für dieses Konto anbietet oder Gmail SMTP von Su
    npx supabase functions deploy user-portal --no-verify-jwt
    ```
 
-   `db push` spielt auch die Migrationen für E-Mail-Einwilligungen und Ticket-Übernahme ein. Admin-Aktionen prüfen weiterhin die Admin-Rolle serverseitig.
+   `db push` spielt auch die Migrationen für E-Mail-Einwilligungen, Ticket-Übernahme und App-Benachrichtigungen ein. Admin-Aktionen prüfen weiterhin die Admin-Rolle serverseitig.
 6. In der Admin-Webseite Nutzer in der Kontoliste markieren, Betreff und Text eintragen und den Versand bestätigen. Rundmails gehen nur an Nutzer mit aktivierter Einwilligung in der App. Pro Versand sind höchstens 99 Nutzer vorgesehen, weil Gmail auch eine Kopie an das eigene Postfach sendet; das kostenlose Gmail-Limit liegt derzeit bei 100 Empfängern pro Tag insgesamt. Neue Support-Tickets senden automatisch eine Mail an `wertweitoffiziell@gmail.com`; eine Antwort wird zusätzlich in der App gespeichert und per E-Mail an den Nutzer geschickt. Versandfehler erscheinen gesondert im Adminbereich.
 
 Test zuerst mit deiner eigenen E-Mail. Apps Script prüft sein tägliches Gmail-Kontingent vor Rundmails und meldet teilweise fehlgeschlagene Zustellungen. Wenn du den Apps-Script-Code änderst, musst du eine neue Web-App-Version bereitstellen.
@@ -83,6 +83,21 @@ Test zuerst mit deiner eigenen E-Mail. Apps Script prüft sein tägliches Gmail-
 Supabase SMTP Dokumentation: https://supabase.com/docs/guides/auth/auth-smtp. Google App-Passwörter: https://support.google.com/accounts/answer/185833. Apps-Script-E-Mail-Limits: https://developers.google.com/apps-script/guides/services/quotas.
 
 Das im Supabase-Dashboard angebotene MCP-Kommando `claude mcp add ...` ist nur für Claude Code und in deinem Screenshot schreibgeschützt. Es ist nicht die App-Verbindung. Dafür in Supabase die Client-Library-Integration wählen; für Kontolisten und privilegierte Admin-Aktionen werden Edge Functions verwendet. Keine direkte Datenbank-Connection-String-Verbindung aus iPhone oder Website.
+
+## App-Benachrichtigungen
+
+Admin-E-Mails erzeugen zusätzlich einen Eintrag in der Benachrichtigungs-Inbox der betroffenen Konten. Für echte Mitteilungen, wenn die iPhone-App geschlossen ist, braucht jedes Gerät eine Push-Berechtigung und der Server einen Apple-APNs-Schlüssel:
+
+1. Im Apple Developer Account Push Notifications für die Bundle-ID `de.wertweit.app` aktivieren und einen APNs Auth Key erstellen. Key-ID, Team-ID und die `.p8`-Datei sicher aufbewahren.
+2. APNs-Key ausschließlich als Supabase-Function-Secret setzen, nicht in Xcode, Git oder die Website. Dafür lokal eine nicht eingecheckte Env-Datei mit `APPLE_TEAM_ID`, `APPLE_APNS_KEY_ID`, `APPLE_APNS_PRIVATE_KEY`, `APPLE_APNS_TOPIC=de.wertweit.app` und `APPLE_APNS_ENVIRONMENT` anlegen. Für Debug-Builds ist die APNs-Umgebung `sandbox`, für App-Store-Builds `production`.
+3. Secrets setzen: `npx supabase secrets set --project-ref jxewtyipeymxbjbckrrl --env-file <private-env-datei>`.
+4. Die App mit aktivierter Push-Entitlement signieren und verteilen. Nutzer müssen Push im App-Menü erlauben. Erst danach meldet das Gerät sein APNs-Token bei Supabase an.
+
+Bis Apple-Key, Push-Capability und ein entsprechend signierter App-Build eingerichtet sind, werden Benachrichtigungen in der App-Inbox gespeichert, aber nicht als echte Hintergrund-Push zugestellt. Der Adminbereich zeigt den Push-Status nach einem E-Mail-Versand an.
+
+## Web-App
+
+Die responsive, installierbare Browser-App liegt unter `website/waehrungsrechner-app-web/` und wird zusammen mit der übrigen Website unter `/waehrungsrechner-app-web/` veröffentlicht. Sie verwendet dasselbe Supabase-Login, den öffentlichen Referenzkursdienst und die Web-Portal-Functions. Die Web-App bietet Rechner, Reise, Wechselwerkzeuge, Kursübersicht, Inbox, E-Mail-Einstellungen und Support. Web-Käufe und die Synchronisierung von Apple-App-Store-Abos sind noch nicht eingerichtet; im Web wird nur ein vom Server gewährter Pro-Zugang erkannt.
 
 ## GitHub
 

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f4ef">
+  <meta name="description" content="Wertweit als Web-App: Währungen umrechnen, Reise- und Wechselwerkzeuge nutzen und dein Konto verwalten.">
+  <title>Wertweit – Web-App</title>
+  <link rel="manifest" href="app.webmanifest">
+  <link rel="icon" href="../assets/wertweit-logo.png">
+  <link rel="apple-touch-icon" href="../assets/wertweit-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="auth-screen" class="auth-screen">
+    <section class="auth-card">
+      <a class="brand" href="../index.html">
+        <img src="../assets/wertweit-logo.png" alt="">
+        <span>Wertweit<small>WÄHRUNGSRECHNER</small></span>
+      </a>
+      <p class="eyebrow">WILLKOMMEN</p>
+      <h1>Geld kennt<br>keine Grenzen.</h1>
+      <p class="muted">Melde dich mit deinem Wertweit-Konto an oder erstelle ein kostenloses Konto.</p>
+      <form id="auth-form">
+        <label for="auth-email">E-Mail-Adresse</label>
+        <input id="auth-email" type="email" autocomplete="email" required>
+        <label for="auth-password">Passwort</label>
+        <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required>
+        <label id="otp-label" for="auth-otp" hidden>E-Mail-Code</label>
+        <input id="auth-otp" inputmode="numeric" autocomplete="one-time-code" hidden>
+        <p id="auth-message" class="status" role="status" aria-live="polite"></p>
+        <button id="auth-submit" class="button primary" type="submit">Anmelden</button>
+      </form>
+      <div class="auth-actions">
+        <button id="auth-mode" class="text-button" type="button">Neues Konto erstellen</button>
+        <button id="reset-password" class="text-button" type="button">Passwort vergessen?</button>
+      </div>
+      <a class="back-link" href="../index.html">← Zur Wertweit-Webseite</a>
+    </section>
+  </main>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="topbar">
+      <a class="brand" href="./">
+        <img src="../assets/wertweit-logo.png" alt="">
+        <span>Wertweit<small>WÄHRUNGSRECHNER</small></span>
+      </a>
+      <div class="account-actions">
+        <span id="account-email" class="account-email"></span>
+        <button id="notification-button" class="icon-button" type="button" aria-label="Benachrichtigungen">
+          <span aria-hidden="true">♧</span><i id="notification-count" hidden></i>
+        </button>
+        <button id="sign-out" class="text-button" type="button">Abmelden</button>
+      </div>
+    </header>
+    <div class="app-layout">
+      <aside class="sidebar">
+        <p class="eyebrow">DEIN WERTWEIT</p>
+        <nav id="side-nav" class="side-nav" aria-label="Hauptnavigation">
+          <button class="nav-item active" data-page="calculator"><span>↔</span> Rechner</button>
+          <button class="nav-item" data-page="travel"><span>✈</span> Reise</button>
+          <button class="nav-item" data-page="exchange"><span>％</span> Wechseln</button>
+          <button class="nav-item" data-page="overview"><span>⌁</span> Übersicht</button>
+          <button class="nav-item" data-page="pro"><span>✦</span> Wertweit Pro</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <span id="pro-status" class="pro-status">Kostenloses Konto</span>
+          <button id="settings-button" class="nav-item" type="button"><span>⚙</span> Konto & Einstellungen</button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <div id="app-status" class="status" role="status" aria-live="polite"></div>
+        <section id="page-calculator" class="page active">
+          <p class="eyebrow">SCHNELL UMRECHNEN</p>
+          <h1>Währungsrechner</h1>
+          <p class="page-intro">Referenzkurse für deine nächste Reise – klar und aktuell.</p>
+          <div class="calculator card">
+            <label for="amount">Betrag</label>
+            <input id="amount" class="amount-input" inputmode="decimal" value="1.000,00">
+            <div class="currency-row">
+              <label>Von
+                <select id="from-currency" aria-label="Ausgangswährung"></select>
+              </label>
+              <button id="swap-currencies" class="swap-button" type="button" aria-label="Währungen tauschen">⇄</button>
+              <label>Nach
+                <select id="to-currency" aria-label="Zielwährung"></select>
+              </label>
+            </div>
+            <div class="result">
+              <span id="rate-label">Kurs wird geladen …</span>
+              <strong id="converted-value">–</strong>
+              <small id="rate-date"></small>
+            </div>
+            <button id="refresh-rate" class="quiet-button" type="button">↻ Kurse aktualisieren</button>
+          </div>
+        </section>
+
+        <section id="page-travel" class="page">
+          <p class="eyebrow">UNTERWEGS</p>
+          <h1>Reise</h1>
+          <p class="page-intro">Was dein Geld vor Ort wert ist.</p>
+          <div class="card">
+            <label for="destination">Reiseziel</label>
+            <select id="destination"></select>
+            <div id="travel-result" class="result"></div>
+            <div id="travel-pro" class="pro-locked"></div>
+          </div>
+        </section>
+
+        <section id="page-exchange" class="page">
+          <p class="eyebrow">KURSE BESSER EINSCHÄTZEN</p>
+          <h1>Geld wechseln</h1>
+          <p class="page-intro">Gebühren und Angebote mit dem Referenzkurs vergleichen.</p>
+          <div id="exchange-modes" class="mode-switch">
+            <button class="mode active" data-mode="fees">Gebühren</button>
+            <button class="mode" data-mode="compare">Vergleich <span class="pro-tag">PRO</span></button>
+            <button class="mode" data-mode="reverse">Rückwärts <span class="pro-tag">PRO</span></button>
+            <button class="mode" data-mode="phrase">Frage <span class="pro-tag">PRO</span></button>
+          </div>
+          <div id="exchange-panel" class="card"></div>
+        </section>
+
+        <section id="page-overview" class="page">
+          <p class="eyebrow">DEINE KURSE</p>
+          <h1>Übersicht</h1>
+          <p class="page-intro">Verlauf, Favoriten und persönliche Kursalarme.</p>
+          <div id="history-panel" class="card"></div>
+          <div id="overview-pro" class="pro-locked"></div>
+        </section>
+
+        <section id="page-pro" class="page">
+          <p class="eyebrow">MEHR ÜBERBLICK</p>
+          <h1>Wertweit Pro</h1>
+          <p class="page-intro">Reise- und Analysewerkzeuge für deine Planung.</p>
+          <div class="card pro-card">
+            <span class="pro-mark">✦</span>
+            <h2 id="pro-title">Dein Pro-Status</h2>
+            <p id="pro-description"></p>
+            <a class="button primary" href="https://apps.apple.com/account/subscriptions" target="_blank" rel="noreferrer">Apple-Abos verwalten</a>
+            <p class="fine-print">Diese Web-App nimmt keine Zahlungen an. Apple-App-Store-Abos werden im Web derzeit nicht automatisch synchronisiert.</p>
+          </div>
+        </section>
+
+        <section id="page-settings" class="page">
+          <p class="eyebrow">KONTO</p>
+          <h1>Einstellungen</h1>
+          <div class="card settings-card">
+            <h2>E-Mail-Produktneuigkeiten</h2>
+            <p>Nur mit deiner Zustimmung erhältst du Produktneuigkeiten per E-Mail.</p>
+            <label class="toggle-row"><span>Produktneuigkeiten per E-Mail</span><input id="email-updates" type="checkbox"></label>
+            <p id="settings-status" class="status" role="status"></p>
+            <button id="settings-refresh" class="quiet-button" type="button">Einstellung aktualisieren</button>
+            <hr>
+            <button id="support-open" class="quiet-button" type="button">Support & Nachrichten</button>
+            <button id="delete-account" class="text-button danger" type="button">Wertweit-Konto löschen</button>
+          </div>
+        </section>
+        <section id="page-support" class="page">
+          <p class="eyebrow">WIR HELFEN DIR</p>
+          <h1>Support</h1>
+          <form id="support-form" class="card">
+            <label for="support-subject">Betreff</label>
+            <input id="support-subject" maxlength="120" required>
+            <label for="support-body">Nachricht</label>
+            <textarea id="support-body" rows="5" maxlength="5000" required></textarea>
+            <button class="button primary" type="submit">Nachricht senden</button>
+            <p id="support-status" class="status" role="status"></p>
+          </form>
+          <div id="support-threads"></div>
+        </section>
+
+        <section id="page-notifications" class="page">
+          <p class="eyebrow">NACHRICHTEN</p>
+          <h1>Benachrichtigungen</h1>
+          <div id="notification-list" class="notification-list"></div>
+        </section>
+      </main>
+    </div>
+    <nav id="mobile-nav" class="mobile-nav" aria-label="Hauptnavigation">
+      <button class="nav-item active" data-page="calculator"><span>↔</span>Rechner</button>
+      <button class="nav-item" data-page="travel"><span>✈</span>Reise</button>
+      <button class="nav-item" data-page="exchange"><span>％</span>Wechseln</button>
+      <button class="nav-item" data-page="overview"><span>⌁</span>Übersicht</button>
+      <button class="nav-item" data-page="pro"><span>✦</span>Pro</button>
+    </nav>
+  </div>
+  <script src="../supabase-config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

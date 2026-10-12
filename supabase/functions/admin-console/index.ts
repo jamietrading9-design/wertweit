@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendAPNS } from "../_shared/apns.ts";
 import { sendViaGmail } from "../_shared/gmail.ts";
 
 const corsHeaders = {
@@ -117,7 +118,59 @@ Deno.serve(async (request) => {
       : "";
     try {
       const result = await sendViaGmail(recipients, subject, `${message}${unsubscribeText}`);
-      return respond(result);
+      const failedEmails = new Set(result.failed.map((failure) => failure.email.toLowerCase()));
+      const successfulUsers = users.filter((user) =>
+        user.email_confirmed_at && user.email && !failedEmails.has(user.email.toLowerCase())
+      );
+      const notifications = successfulUsers.map((user) => ({
+        user_id: user.id,
+        title: subject,
+        body: message.slice(0, 500),
+        kind: "admin_email",
+      }));
+      let notificationStatus = {
+        created: 0,
+        pushSent: 0,
+        pushFailed: 0,
+        pushConfigured: false,
+      };
+      if (notifications.length > 0) {
+        const { data: inserted, error: notificationError } = await supabase
+          .from("app_notifications")
+          .insert(notifications)
+          .select("id, user_id");
+        if (notificationError) {
+          console.error("Email delivered but in-app notifications could not be saved", notificationError.message);
+        } else {
+          notificationStatus.created = inserted?.length ?? 0;
+          const userIdsWithNotifications = [...new Set((inserted ?? []).map((item) => item.user_id))];
+          if (userIdsWithNotifications.length > 0) {
+            const { data: tokens, error: tokenError } = await supabase
+              .from("device_push_tokens")
+              .select("device_token")
+              .in("user_id", userIdsWithNotifications)
+              .eq("enabled", true);
+            if (tokenError) {
+              console.error("In-app notifications saved but device tokens could not be loaded", tokenError.message);
+            } else {
+              try {
+                const push = await sendAPNS(
+                  [...new Set((tokens ?? []).map((item) => item.device_token))],
+                  { title: subject, body: message.slice(0, 500) },
+                );
+                notificationStatus.pushSent = push.sent;
+                notificationStatus.pushFailed = push.failed;
+                notificationStatus.pushConfigured = push.configured;
+              } catch (error) {
+                console.error("In-app notifications saved but APNs delivery failed", error);
+                notificationStatus.pushConfigured = true;
+                notificationStatus.pushFailed = (tokens ?? []).length;
+              }
+            }
+          }
+        }
+      }
+      return respond({ ...result, appNotifications: notificationStatus });
     } catch (error) {
       console.error("Could not send admin email", error);
       return respond({ error: error instanceof Error ? error.message : "Email could not be sent" }, 502);
