@@ -24,6 +24,7 @@ const state = {
   initializing: false,
   maintenanceTimer: null,
   appRefreshTimer: null,
+  rateRequestNumber: 0,
 };
 const destinations = [
   { country: "Japan", flag: "🇯🇵", currency: "JPY", meal: 900, coffee: 500, transport: 1800, budget: "40–60 €", moderate: "80–130 €", comfort: "ab 150 €", tipping: "Trinkgeld ist in Japan normalerweise nicht üblich." },
@@ -146,12 +147,14 @@ async function loadCurrentRate() {
   const from = $("#from-currency").value;
   const to = $("#to-currency").value;
   if (!from || !to) return;
+  const currentRequest = ++state.rateRequestNumber;
   $("#rate-label").textContent = "Kurs wird geladen …";
   try {
-    const response = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(from)}&symbols=${encodeURIComponent(to)}`);
     if (!response.ok) throw new Error(`Kursdienst antwortet mit HTTP ${response.status}.`);
     const result = await response.json();
-    const rate = result.rates?.[to];
+    if (currentRequest !== state.rateRequestNumber) return;
+    const rate = from === to ? 1 : result.rates?.[to];
     if (!Number.isFinite(rate)) throw new Error("Für dieses Währungspaar ist kein Referenzkurs verfügbar.");
     state.rate = rate;
     state.rateDate = result.date;
@@ -161,6 +164,7 @@ async function loadCurrentRate() {
     renderTravel();
     renderExchange();
   } catch (error) {
+    if (currentRequest !== state.rateRequestNumber) return;
     state.rate = null;
     $("#rate-label").textContent = error.message;
     $("#converted-value").textContent = "–";
@@ -324,7 +328,7 @@ async function loadHistoryData() {
     const endText = today.toISOString().slice(0, 10);
     const from = encodeURIComponent($("#from-currency").value);
     const to = encodeURIComponent($("#to-currency").value);
-    const response = await fetch(`https://api.frankfurter.app/${startText}..${endText}?from=${from}&to=${to}`);
+    const response = await fetch(`https://api.frankfurter.dev/v1/${startText}..${endText}?base=${from}&symbols=${to}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     const points = Object.entries(data.rates ?? {}).flatMap(([date, rates]) => Number.isFinite(rates[to]) ? [{ date, value: rates[to] }] : []);
@@ -464,7 +468,7 @@ async function initializeApp(user) {
     $("#account-email").textContent = user.email ?? "";
     await Promise.all([loadAccess(), loadNotifications(), loadEmailPreference()]);
     try {
-      const response = await fetch("https://api.frankfurter.app/currencies");
+      const response = await fetch("https://api.frankfurter.dev/v1/currencies");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       state.currencies = await response.json();
       fillCurrencySelectors();
@@ -668,7 +672,8 @@ $("#reset-password").addEventListener("click", async () => {
     setStatus($("#auth-message"), "Gib zuerst deine E-Mail-Adresse ein.");
     return;
   }
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.href });
+  const redirectTo = new URL("../set-password.html", location.href).href;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   setStatus($("#auth-message"), error?.message ?? "Falls das Konto existiert, wurde ein Link zum Zurücksetzen angefordert.", error ? "" : "success");
 });
 $("#auth-otp").addEventListener("input", (event) => {

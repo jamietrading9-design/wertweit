@@ -149,9 +149,11 @@
       <section class="card" aria-labelledby="accounts-title">
         <div class="card-heading"><h2 id="accounts-title">Nutzerkonten</h2><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
         <form id="create-user-form" class="fields">
-          <label>Nutzer einladen oder Bestätigung erneut senden<input id="new-user-email" type="email" autocomplete="email" required></label>
-          <label class="setting"><input id="new-user-admin" type="checkbox"> Als Admin einladen (voller Zugriff auf Nutzerverwaltung)</label>
-          <button id="create-user-button" type="submit">Einladung senden / erneut senden</button>
+          <label>Nutzer einladen oder direkt anlegen<input id="new-user-email" type="email" autocomplete="email" required></label>
+          <label class="setting"><input id="new-user-skip-confirmation" type="checkbox"> Konto sofort aktiv anlegen (ohne E-Mail-Bestätigung)</label>
+          <label>Initialpasswort (optional, nur bei direkter Anlage)<input id="new-user-password" type="text" autocomplete="new-password" placeholder="leer = automatisch generieren"></label>
+          <label class="setting"><input id="new-user-admin" type="checkbox"> Als Admin einladen / anlegen (voller Zugriff auf Nutzerverwaltung)</label>
+          <button id="create-user-button" type="submit">Einladung senden / Konto anlegen</button>
         </form>
         <p id="create-user-status" class="status" role="status"></p>
         <p id="users-status" class="status" role="status"></p>
@@ -577,20 +579,31 @@
         event.preventDefault();
         const button = document.querySelector("#create-user-button");
         setBusy(button, true);
-        setStatus(document.querySelector("#create-user-status"), "Einladung wird gesendet …");
+        const skipEmailConfirmation = document.querySelector("#new-user-skip-confirmation").checked;
+        const password = document.querySelector("#new-user-password").value.trim();
+        setStatus(document.querySelector("#create-user-status"), skipEmailConfirmation ? "Konto wird direkt aktiviert …" : "Einladung wird gesendet …");
         try {
           const result = await callAdmin("create-user", {
             email: document.querySelector("#new-user-email").value.trim(),
             admin: document.querySelector("#new-user-admin").checked,
+            skipEmailConfirmation,
+            password: password || undefined,
           });
           const { user } = result;
-          const role = document.querySelector("#new-user-admin").checked ? "Admin-Einladung" : "Einladung";
-          const message = result.resent
-            ? result.emailType === "recovery"
-              ? `Das Konto für ${user.email} ist bereits bestätigt. Ein Link zum Passwort-Setzen wurde an die Adresse gesendet.`
-              : `Bestätigung für ${user.email} erneut gesendet.`
-            : `${role} an ${user.email} gesendet.`;
-          setStatus(document.querySelector("#create-user-status"), message, "success");
+          if (skipEmailConfirmation) {
+            const passwordHint = result.password
+              ? ` Initialpasswort: ${result.password}`
+              : " Das Konto wurde direkt aktiviert, ohne dass eine E-Mail-Bestätigung nötig war.";
+            setStatus(document.querySelector("#create-user-status"), `${result.admin ? "Admin-Konto" : "Konto"} für ${user.email} ohne E-Mail-Bestätigung angelegt.${passwordHint}`, "success");
+          } else {
+            const role = document.querySelector("#new-user-admin").checked ? "Admin-Einladung" : "Einladung";
+            const message = result.resent
+              ? result.emailType === "recovery"
+                ? `Das Konto für ${user.email} ist bereits bestätigt. Ein Link zum Passwort-Setzen wurde an die Adresse gesendet.`
+                : `Bestätigung für ${user.email} erneut gesendet.`
+              : `${role} an ${user.email} gesendet.`;
+            setStatus(document.querySelector("#create-user-status"), message, "success");
+          }
           event.currentTarget.reset();
           await loadUsers();
         } catch (error) {

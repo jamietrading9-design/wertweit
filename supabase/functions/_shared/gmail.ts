@@ -12,6 +12,7 @@ export async function sendViaGmail(
   recipients: string[],
   subject: string,
   body: string,
+  replyTo?: string,
 ): Promise<GmailDeliveryResult> {
   const scriptURL = Deno.env.get("GOOGLE_APPS_SCRIPT_URL");
   const scriptToken = Deno.env.get("GOOGLE_APPS_SCRIPT_TOKEN");
@@ -24,7 +25,7 @@ export async function sendViaGmail(
     response = await fetch(scriptURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: scriptToken, recipients, subject, body }),
+      body: JSON.stringify({ token: scriptToken, recipients, subject, body, ...(replyTo ? { replyTo } : {}) }),
     });
   } catch (error) {
     console.error("Could not reach the Gmail delivery script", error);

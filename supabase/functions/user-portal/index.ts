@@ -264,6 +264,7 @@ Deno.serve(async (request) => {
         ["wertweitoffiziell@gmail.com"],
         `${supportPriorityEmoji(classification.priority)} ${supportPriorityLabel(classification.priority)} · ${supportCategoryLabel(classification.category)} · ${subject.replace(/[\r\n]/g, " ").slice(0, 80)}`,
         `Neue Support-Anfrage von ${authData.user.email ?? "unbekannter E-Mail-Adresse"}:\n\nPriorität: ${supportPriorityLabel(classification.priority)}\nKategorie: ${supportCategoryLabel(classification.category)}\nBetreff: ${subject}\n\n${body}`,
+        authData.user.email,
       );
       adminNotified = notification.sent === 1 && notification.failed.length === 0;
       if (!adminNotified) {

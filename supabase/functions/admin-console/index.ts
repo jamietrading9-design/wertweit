@@ -245,7 +245,82 @@ Deno.serve(async (request) => {
     if (payload.admin !== undefined && typeof payload.admin !== "boolean") {
       return respond({ error: "Invalid account role" }, 400);
     }
+
     const email = payload.email.trim();
+    const skipEmailConfirmation = payload.skipEmailConfirmation === true;
+    const rawPassword = typeof payload.password === "string" ? payload.password.trim() : "";
+
+    if (skipEmailConfirmation && rawPassword.length > 0 && (rawPassword.length < 8 || rawPassword.length > 128)) {
+      return respond({ error: "Wenn du ein Initialpasswort setzt, muss es 8 bis 128 Zeichen lang sein." }, 400);
+    }
+
+    const generateRandomPassword = () => {
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
+      const values = new Uint32Array(20);
+      crypto.getRandomValues(values);
+      return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+    };
+
+    if (skipEmailConfirmation) {
+      const password = rawPassword || generateRandomPassword();
+      const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) {
+        console.error("Could not load accounts before direct user creation", listError.message);
+        return respond({ error: "Die vorhandenen Konten konnten nicht geprüft werden." }, 502);
+      }
+
+      const existingUser = existingUsers.users.find((entry) => entry.email?.toLowerCase() === email.toLowerCase());
+
+      if (existingUser) {
+        const { error: updateError } = await supabase.auth.admin.updateUserById(existingUser.id, {
+          password,
+          app_metadata: {
+            ...(existingUser.app_metadata ?? {}),
+            ...(payload.admin === true ? { role: "admin" } : {}),
+          },
+        });
+        if (updateError) {
+          console.error("Could not update existing account without email confirmation", updateError.message);
+          return respond({ error: "Ein vorhandenes Konto konnte nicht sofort aktiviert werden." }, 502);
+        }
+        return respond({
+          user: { id: existingUser.id, email: existingUser.email },
+          admin: payload.admin === true,
+          password,
+          directCreate: true,
+        }, 200);
+      }
+
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { created_by_admin: true },
+      });
+      if (error) {
+        console.error("Could not create account without email confirmation", error.message);
+        return respond({ error: `Das Konto konnte ohne E-Mail-Bestätigung nicht angelegt werden: ${error.message}` }, 502);
+      }
+
+      if (payload.admin === true) {
+        const { error: roleError } = await supabase.auth.admin.updateUserById(data.user.id, {
+          app_metadata: { ...(data.user.app_metadata ?? {}), role: "admin" },
+        });
+        if (roleError) {
+          console.error("Could not apply admin role on directly created account", roleError.message);
+          await supabase.auth.admin.deleteUser(data.user.id);
+          return respond({ error: "Admin-Konto konnte nicht erstellt werden." }, 502);
+        }
+      }
+
+      return respond({
+        user: { id: data.user.id, email: data.user.email },
+        admin: payload.admin === true,
+        password,
+        directCreate: true,
+      }, 201);
+    }
+
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: "https://jamietrading9-design.github.io/wertweit/set-password.html",
     });
