@@ -545,12 +545,24 @@ $("#support-form").addEventListener("submit", async (event) => {
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
   try {
-    await portal("create-support", {
+    const result = await portal("create-support", {
       subject: $("#support-subject").value,
       body: $("#support-body").value,
     });
     event.currentTarget.reset();
-    setStatus($("#support-status"), "Nachricht an den Wertweit-Support gesendet.", "success");
+    if (result.adminNotified === true) {
+      setStatus($("#support-status"), "Support-Ticket gespeichert und der Support per E-Mail benachrichtigt.", "success");
+    } else if (result.adminNotified === false) {
+      setStatus(
+        $("#support-status"),
+        "Support-Ticket gespeichert, aber die E-Mail-Benachrichtigung an den Support ist fehlgeschlagen. Bitte sende das Ticket nicht erneut; es ist in der App und im Adminbereich gespeichert.",
+      );
+    } else {
+      setStatus(
+        $("#support-status"),
+        "Support-Ticket gespeichert. Der E-Mail-Status konnte nicht bestätigt werden; bitte sende das Ticket nicht erneut.",
+      );
+    }
     await loadSupportThreads();
   } catch (error) {
     setStatus($("#support-status"), error.message);

@@ -441,17 +441,21 @@ final class SupabaseSessionStore: ObservableObject {
         do {
             try await refreshSessionIfNeeded()
             guard let currentSession = self.session else { throw SupabaseRequestError.incompleteSession }
-            _ = try await requestData(
+            let responseData = try await requestData(
                 path: ["functions", "v1", "user-portal"],
                 body: CreateSupportRequest(action: "create-support", subject: subject, body: body),
                 accessToken: currentSession.accessToken
             )
+            let response = try JSONDecoder().decode(CreateSupportResponse.self, from: responseData)
             await refreshSupportThreads()
-            if supportStatusIsError {
-                supportStatusMessage = "Deine Nachricht wurde gesendet. Der Verlauf konnte nicht aktualisiert werden; tippe auf Aktualisieren."
+            if !response.adminNotified {
+                supportStatusMessage = "Dein Support-Ticket wurde gespeichert, aber die E-Mail-Benachrichtigung an den Support ist fehlgeschlagen. Bitte sende das Ticket nicht erneut; es ist in der App und im Adminbereich gespeichert."
+                supportStatusIsError = true
+            } else if supportStatusIsError {
+                supportStatusMessage = "Dein Support-Ticket wurde gespeichert und der Support per E-Mail benachrichtigt. Der Verlauf konnte nicht aktualisiert werden; tippe auf Aktualisieren."
                 supportStatusIsError = false
             } else {
-                supportStatusMessage = "Deine Nachricht wurde an den Wertweit-Support gesendet."
+                supportStatusMessage = "Dein Support-Ticket wurde gespeichert und der Support per E-Mail benachrichtigt."
             }
         } catch {
             if case let SupabaseRequestError.invalidResponse(status, serverError) = error,
@@ -679,6 +683,10 @@ private struct CreateSupportRequest: Encodable {
     let action: String
     let subject: String
     let body: String
+}
+
+private struct CreateSupportResponse: Decodable {
+    let adminNotified: Bool
 }
 
 private struct AccountAccessResponse: Decodable {

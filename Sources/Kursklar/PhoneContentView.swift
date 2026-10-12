@@ -404,8 +404,7 @@ struct PhoneContentView: View {
                             supportSending = true
                             await authStore.sendSupportMessage(subject: supportSubject, body: supportBody)
                             supportSending = false
-                            if authStore.supportStatusMessage?.contains("wurde an den Wertweit-Support gesendet") == true
-                                || authStore.supportStatusMessage?.contains("wurde gesendet. Der Verlauf") == true {
+                            if authStore.supportStatusMessage?.contains("Support-Ticket wurde gespeichert") == true {
                                 supportSubject = ""
                                 supportBody = ""
                             }
@@ -808,7 +807,7 @@ struct PhoneContentView: View {
                     }
 
                     legalSection("Kontakt") {
-                        Link("jamie.trading.9@gmail.com", destination: URL(string: "mailto:jamie.trading.9@gmail.com")!)
+                        Link("wertweitoffiziell@gmail.com", destination: URL(string: "mailto:wertweitoffiziell@gmail.com")!)
                         Link("01747685433", destination: URL(string: "tel:01747685433")!)
                     }
 
@@ -827,7 +826,7 @@ struct PhoneContentView: View {
                         privacySection("Verantwortlich") {
                             Text("Jamie Lübcke")
                             Text("Bojum 1, 24402 Esgrus")
-                            Link("jamie.trading.9@gmail.com", destination: URL(string: "mailto:jamie.trading.9@gmail.com")!)
+                            Link("wertweitoffiziell@gmail.com", destination: URL(string: "mailto:wertweitoffiziell@gmail.com")!)
                         }
 
                         privacySection("Daten auf deinem Gerät") {
