@@ -14,7 +14,7 @@ Die iPhone-App benötigt ein Supabase-Auth-Konto mit E-Mail-Adresse und Passwort
 
 Wechselkurse, historische Referenzdaten und die Währungsliste werden über `api.frankfurter.dev` geladen. Der Dienst stellt Referenzkurse der EZB bereit; die App ist kein offizielles Produkt der EZB. Ein gespeicherter letzter Kurs kann ohne Internet verwendet werden und wird in der App als gespeichert gekennzeichnet.
 
-Enthalten sind der Währungsrechner, Reise-Kaufkraftschätzungen für ausgewählte Länder, Trinkgeld- und Tagesbudget-Richtwerte, Gebühren- und Kursvergleich, Rückwärtsrechnung, einfache lokale natürlichsprachliche Eingabe, historische Kursdiagramme, Mehrfachwährungsanzeige und lokal gespeicherte Favoriten/Kursalarme. Kursalarme werden beim erfolgreichen Abruf der jeweiligen Ausgangswährung geprüft. Wird der Zielkurs erreicht, erscheint einmalig eine Meldung in der App und der Alarm wird entfernt. Es gibt keine Hintergrundüberwachung und keine Push-Mitteilungen. Reise- und Preisangaben sind manuelle Schätzungen, werden nicht live abgerufen oder laufend geprüft und können abweichen.
+Enthalten sind der Währungsrechner, Reise-Kaufkraftschätzungen für ausgewählte Länder, Trinkgeld- und Tagesbudget-Richtwerte, Gebühren- und Kursvergleich, Rückwärtsrechnung, einfache lokale natürlichsprachliche Eingabe, historische Kursdiagramme, Mehrfachwährungsanzeige und lokal gespeicherte Favoriten/Kursalarme. Kursalarme werden beim erfolgreichen Abruf der jeweiligen Ausgangswährung geprüft. Wird der Zielkurs erreicht, erscheint eine iOS-Gerätebenachrichtigung und eine Meldung in der App; der Alarm wird entfernt. Die App fragt beim Anlegen eines Kursalarms nach der Benachrichtigungserlaubnis. Es gibt keine Hintergrundüberwachung und keine Server-Push-Mitteilungen; der Kursalarm kann daher erst beim nächsten Kursabruf auslösen. Reise- und Preisangaben sind manuelle Schätzungen, werden nicht live abgerufen oder laufend geprüft und können abweichen.
 
 ## Abo-Entwurf
 
@@ -45,6 +45,42 @@ Für die neuen Admin-Kennzahlen und Pro-Angebotstexte muss die Migration `202610
 7. `Kursklar.xcodeproj` öffnen und die iPhone-App neu bauen/installieren. Kontoregistrierung, Anmeldung und Wartungsstatus verwenden dasselbe Supabase-Projekt.
 
 Im Adminbereich kann eine Einladung erneut gesendet werden: Bei einem unbestätigten Konto wird die Registrierungsbestätigung erneut versendet; bei einem bereits bestätigten Konto erhält der Nutzer stattdessen einen Link zum Setzen des Passworts. Beides benötigt funktionierenden SMTP-Versand und die erlaubte Redirect-URL.
+
+### E-Mail-Versand einrichten
+
+Für Bestätigungscodes und Einladungen verwendet Supabase SMTP. Der Adminbereich versendet zusätzlich Einzel-E-Mails an ausgewählte Konten sowie Rundmails ausschließlich an Nutzer, die **Produktneuigkeiten per E-Mail** selbst in der App eingeschaltet haben. Die Auswahl wird in `email_update_preferences` gespeichert; Nutzer können sie jederzeit im App-Menü wieder ausschalten. Rundmails enthalten einen Abmeldehinweis. An einzelne, ausgewählte Konten sollen nur erforderliche Konto- oder Servicenachrichten gehen.
+
+Der Absender für Wertweit ist `wertweitoffiziell@gmail.com`. Für diesen konkreten Absender ist ein Google-Konto plus Google Apps Script der einfachste kostenlose Weg: Supabase Auth verschickt Bestätigungscodes automatisch über Gmail-SMTP; die Admin-Webseite und Support-Antworten senden über ein kleines Apps-Script, das als dieses Gmail-Konto läuft. Google veröffentlicht für Apps Script derzeit ein Limit von 100 E-Mail-Empfängern pro Tag bei kostenlosen Gmail-Konten; Limits können geändert werden. Für den Adminversand ist keine eigene Versanddomain erforderlich. Neue Support-Anfragen lösen außerdem automatisch eine E-Mail an `wertweitoffiziell@gmail.com` aus.
+
+#### Automatische Bestätigungscodes und Einladungen
+
+1. Melde dich beim Google-Konto `wertweitoffiziell@gmail.com` an und aktiviere die **Bestätigung in zwei Schritten**. Erstelle anschließend unter [Google App-Passwörter](https://myaccount.google.com/apppasswords) ein App-Passwort. Verwende dieses App-Passwort, nicht dein normales Gmail-Passwort.
+2. Öffne Supabase **Authentication > SMTP Settings**, aktiviere Custom SMTP und trage ein: Host `smtp.gmail.com`, Port `465` (SSL), Benutzername `wertweitoffiziell@gmail.com`, Passwort das Google-App-Passwort, Absender-E-Mail `wertweitoffiziell@gmail.com`, Absendername `Wertweit`. Speichere es nur im Supabase-Dashboard; nicht in Xcode, Git oder der Website.
+3. In Supabase **Authentication > Providers** E-Mail/Passwort und E-Mail-Bestätigung aktivieren. In **Authentication > Emails** die Bestätigungsvorlage mit `{{ .Token }}` als Code und 300 Sekunden Gültigkeit konfigurieren. Supabase verschickt Codes, Registrierungsbestätigungen, Passwort-Resets und Admin-Einladungen dann automatisch; niemand muss E-Mails oder Codes manuell verschicken. Das kostenlose Supabase-Test-SMTP kann nur an Projekt-Teamadressen senden und reicht nicht für echte Nutzer.
+
+Falls Google kein App-Passwort für dieses Konto anbietet oder Gmail SMTP von Supabase nicht akzeptiert, hält das Konto diese Verbindung nicht frei; dann ist ein SMTP-Anbieter mit kostenloser Stufe nötig, aber normalerweise mit eigener verifizierter Domain.
+
+#### Admin-E-Mails und Support-Antworten
+
+1. In `scripts/wertweit-email-sender.gs` den Code in ein neues [Google Apps Script](https://script.google.com/) kopieren, während du als `wertweitoffiziell@gmail.com` angemeldet bist.
+2. In Apps Script **Projekteinstellungen > Skripteigenschaften** eine zufällige, lange Zeichenfolge als `WERTWEIT_MAIL_SECRET` speichern. Nicht in den Code schreiben und nicht weitergeben.
+3. **Bereitstellen > Neue Bereitstellung > Web-App** wählen. **Ausführen als**: ich (`wertweitoffiziell@gmail.com`); **Zugriff**: alle. Bereitstellen und die Web-App-URL kopieren. Die URL ist öffentlich erreichbar, aber jeder Versand benötigt das geheime Token; teile URL und Token nicht öffentlich.
+4. In Supabase **Edge Functions > Secrets** zwei Secrets anlegen: `GOOGLE_APPS_SCRIPT_URL` erhält die Web-App-URL und `GOOGLE_APPS_SCRIPT_TOKEN` exakt dasselbe Geheimnis wie `WERTWEIT_MAIL_SECRET`. Diese Werte nur in Supabase/Apps Script eintragen, nicht in der App oder Website.
+
+5. Die Migrationen und die Functions ausrollen:
+
+   ```sh
+   npx supabase db push
+   npx supabase functions deploy admin-console --no-verify-jwt
+   npx supabase functions deploy user-portal --no-verify-jwt
+   ```
+
+   `db push` spielt auch die Migrationen für E-Mail-Einwilligungen und Ticket-Übernahme ein. Admin-Aktionen prüfen weiterhin die Admin-Rolle serverseitig.
+6. In der Admin-Webseite Nutzer in der Kontoliste markieren, Betreff und Text eintragen und den Versand bestätigen. Rundmails gehen nur an Nutzer mit aktivierter Einwilligung in der App. Pro Versand sind höchstens 99 Nutzer vorgesehen, weil Gmail auch eine Kopie an das eigene Postfach sendet; das kostenlose Gmail-Limit liegt derzeit bei 100 Empfängern pro Tag insgesamt. Neue Support-Tickets senden automatisch eine Mail an `wertweitoffiziell@gmail.com`; eine Antwort wird zusätzlich in der App gespeichert und per E-Mail an den Nutzer geschickt. Versandfehler erscheinen gesondert im Adminbereich.
+
+Test zuerst mit deiner eigenen E-Mail. Apps Script prüft sein tägliches Gmail-Kontingent vor Rundmails und meldet teilweise fehlgeschlagene Zustellungen. Wenn du den Apps-Script-Code änderst, musst du eine neue Web-App-Version bereitstellen.
+
+Supabase SMTP Dokumentation: https://supabase.com/docs/guides/auth/auth-smtp. Google App-Passwörter: https://support.google.com/accounts/answer/185833. Apps-Script-E-Mail-Limits: https://developers.google.com/apps-script/guides/services/quotas.
 
 Das im Supabase-Dashboard angebotene MCP-Kommando `claude mcp add ...` ist nur für Claude Code und in deinem Screenshot schreibgeschützt. Es ist nicht die App-Verbindung. Dafür in Supabase die Client-Library-Integration wählen; für Kontolisten und privilegierte Admin-Aktionen werden Edge Functions verwendet. Keine direkte Datenbank-Connection-String-Verbindung aus iPhone oder Website.
 

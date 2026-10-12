@@ -63,6 +63,7 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var adminProUntil: String?
     @Published private(set) var isAwaitingEmailConfirmation = false
     @Published private(set) var emailConfirmationEmail = ""
+    @Published private(set) var emailUpdatesSubscribed = false
     @Published private(set) var supportThreads: [WertweitSupportThread] = []
     @Published private(set) var supportStatusMessage: String?
     @Published private(set) var supportStatusIsError = false
@@ -314,6 +315,42 @@ final class SupabaseSessionStore: ObservableObject {
         }
     }
 
+    func refreshEmailUpdatesPreference() async {
+        guard session != nil else { return }
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = session else { return }
+            let data = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: PortalAction(action: "get-email-updates"),
+                accessToken: currentSession.accessToken
+            )
+            emailUpdatesSubscribed = try JSONDecoder().decode(EmailUpdatesResponse.self, from: data).subscribed
+        } catch {
+            statusMessage = "Deine E-Mail-Einstellung konnte nicht geladen werden. Prüfe deine Verbindung."
+        }
+    }
+
+    func setEmailUpdatesSubscribed(_ subscribed: Bool) async {
+        guard session != nil else { return }
+        statusMessage = nil
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = session else { throw SupabaseRequestError.incompleteSession }
+            let data = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: SetEmailUpdatesRequest(action: "set-email-updates", subscribed: subscribed),
+                accessToken: currentSession.accessToken
+            )
+            emailUpdatesSubscribed = try JSONDecoder().decode(EmailUpdatesResponse.self, from: data).subscribed
+            statusMessage = emailUpdatesSubscribed
+                ? "Du hast Produktneuigkeiten per E-Mail eingeschaltet."
+                : "Du erhältst keine Produktneuigkeiten mehr per E-Mail."
+        } catch {
+            statusMessage = "Deine E-Mail-Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut."
+        }
+    }
+
     func recordAppOpen() async {
         guard session != nil, !isBlocked else { return }
         do {
@@ -545,6 +582,15 @@ private struct EmptyRequest: Encodable {}
 
 private struct PortalAction: Encodable {
     let action: String
+}
+
+private struct SetEmailUpdatesRequest: Encodable {
+    let action: String
+    let subscribed: Bool
+}
+
+private struct EmailUpdatesResponse: Decodable {
+    let subscribed: Bool
 }
 
 private struct CreateSupportRequest: Encodable {

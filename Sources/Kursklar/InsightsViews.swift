@@ -1,5 +1,16 @@
 import SwiftUI
 
+private struct InsightsDecimalPad: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.keyboardType(.decimalPad)
+        #else
+        content
+        #endif
+    }
+}
+
 private let featureInk = Color(red: 0.10, green: 0.16, blue: 0.15)
 private let featureGreen = Color(red: 0.12, green: 0.39, blue: 0.30)
 private let featureCanvas = Color(red: 0.95, green: 0.96, blue: 0.93)
@@ -395,6 +406,16 @@ struct MoreFeaturesView: View {
         .task(id: "\(model.sourceCode)-\(model.targetCode)-\(historyDays)") {
             await loadHistory()
         }
+        .alert("Kursalarm", isPresented: Binding(
+            get: { model.rateAlertStatusMessage != nil },
+            set: { isPresented in
+                if !isPresented { model.dismissRateAlertStatusMessage() }
+            }
+        )) {
+            Button("OK", role: .cancel) { model.dismissRateAlertStatusMessage() }
+        } message: {
+            Text(model.rateAlertStatusMessage ?? "")
+        }
     }
 
     private var historyPanel: some View {
@@ -522,18 +543,17 @@ struct MoreFeaturesView: View {
             sectionTitle("Kursalarme", detail: "Beim Kursabruf geprüft, nicht im Hintergrund")
             HStack(spacing: 8) {
                 TextField("Zielkurs", text: $newAlertThreshold)
-                    .keyboardType(.decimalPad)
+                    .modifier(InsightsDecimalPad())
                     .font(.system(size: 14)).padding(11)
                     .background(featureCanvas, in: RoundedRectangle(cornerRadius: 9))
                 Text(model.targetCode).font(.system(size: 11, weight: .bold)).foregroundStyle(featureInk.opacity(0.6))
                 Button {
                     guard let threshold = Double(newAlertThreshold.replacingOccurrences(of: ",", with: ".")), threshold > 0 else { return }
-                    let entry = "\(model.sourceCode)-\(model.targetCode)-\(threshold)"
-                    if !alerts.contains(entry) {
-                        savedAlerts = (alerts + [entry]).joined(separator: "|")
+                    Task {
+                        if await model.addRateAlert(targetCode: model.targetCode, threshold: threshold) {
+                            newAlertThreshold = ""
+                        }
                     }
-                    newAlertThreshold = ""
-                    model.refreshRate()
                 } label: {
                     Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
                         .frame(width: 36, height: 36).background(featureGreen, in: Circle())
@@ -654,7 +674,7 @@ private func labeledInput(_ title: String, text: Binding<String>, suffix: String
     VStack(alignment: .leading, spacing: 6) {
         Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(featureInk.opacity(0.62))
         HStack(spacing: 8) {
-            TextField("0", text: text).keyboardType(.decimalPad).font(.system(size: 15, weight: .medium, design: .rounded))
+            TextField("0", text: text).modifier(InsightsDecimalPad()).font(.system(size: 15, weight: .medium, design: .rounded))
             Text(suffix).font(.system(size: 11, weight: .semibold)).foregroundStyle(featureInk.opacity(0.5))
         }
         .padding(11).background(featureCanvas, in: RoundedRectangle(cornerRadius: 9))

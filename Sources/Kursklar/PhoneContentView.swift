@@ -1,3 +1,4 @@
+#if os(iOS)
 import StoreKit
 import SwiftUI
 import UserNotifications
@@ -117,6 +118,7 @@ struct PhoneContentView: View {
             await authStore.refreshAccountAccess()
             subscriptionStore.setAdminPro(until: authStore.adminProUntil)
             await authStore.recordAppOpen()
+            await authStore.refreshEmailUpdatesPreference()
             await authStore.refreshSupportThreads()
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             withAnimation(.easeOut(duration: 0.25)) {
@@ -130,6 +132,7 @@ struct PhoneContentView: View {
                 Task {
                     await authStore.refreshAccountAccess()
                     subscriptionStore.setAdminPro(until: authStore.adminProUntil)
+                    await authStore.refreshEmailUpdatesPreference()
                     await authStore.recordAppOpen()
                     await authStore.refreshSupportThreads()
                 }
@@ -254,6 +257,16 @@ struct PhoneContentView: View {
                         .font(.caption)
                         .foregroundStyle(ink.opacity(0.6))
                 }
+
+                Toggle(
+                    "Produktneuigkeiten per E-Mail",
+                    isOn: Binding(
+                        get: { authStore.emailUpdatesSubscribed },
+                        set: { subscribed in
+                            Task { await authStore.setEmailUpdatesSubscribed(subscribed) }
+                        }
+                    )
+                )
 
                 Button {
                     Task { await authStore.signOut() }
@@ -403,7 +416,7 @@ struct PhoneContentView: View {
                                             .font(.system(size: 15, weight: .semibold))
                                             .foregroundStyle(ink)
                                         Spacer()
-                                        Text(thread.status == "closed" ? "Geschlossen" : "Offen")
+                                        Text(thread.status == "closed" ? "Geschlossen" : thread.status == "in_progress" ? "Wird bearbeitet" : "Offen")
                                             .font(.system(size: 11, weight: .semibold))
                                             .foregroundStyle(green)
                                     }
@@ -465,7 +478,7 @@ struct PhoneContentView: View {
                     .padding(.vertical, 5)
                 }
             } header: {
-                Text(thread.status == "closed" ? "Ticket geschlossen" : "Ticket offen")
+                Text(thread.status == "closed" ? "Ticket geschlossen" : thread.status == "in_progress" ? "Dein Ticket wird bearbeitet" : "Ticket offen")
             }
         }
         .navigationTitle(thread.subject)
@@ -792,6 +805,8 @@ struct PhoneContentView: View {
 
                         privacySection("Wertweit-Konto und Supabase") {
                             Text("Für die App ist ein Konto mit E-Mail-Adresse und Passwort erforderlich. Supabase Auth verarbeitet die Anmeldedaten und speichert Konto-ID, E-Mail-Adresse, Registrierungs- und letzte Anmeldezeit. Passwörter werden nicht in der Wertweit-App-Datenbank gespeichert. Administratoren können E-Mail-Adresse und Anmeldezeit im geschützten Adminbereich einsehen.")
+                            Text("Produktneuigkeiten per E-Mail sind freiwillig und zunächst ausgeschaltet. Wenn du sie im App-Menü einschaltest, speichert Supabase deine Konto-ID, den Einwilligungsstatus und den Zeitpunkt der Anmeldung. Du kannst die Einwilligung dort jederzeit für die Zukunft widerrufen. Für den Versand werden deine E-Mail-Adresse sowie Betreff und Nachricht über Google Apps Script und Gmail verschickt.")
+                            Text("Wenn du ein Support-Ticket sendest, werden dein Tickettext und deine E-Mail-Adresse außerdem an den Wertweit-Support unter wertweitoffiziell@gmail.com weitergeleitet. Antworten des Supports werden in deinem App-Ticket gespeichert und zusätzlich per E-Mail verschickt.")
                             Text("Die App fragt außerdem den Wartungsstatus von Supabase ab. Ohne Internetverbindung kann eine neu eingeschaltete Wartung nicht sofort auf dem Gerät ankommen; der zuletzt bekannte Zustand bleibt wirksam.")
                         }
 
@@ -815,7 +830,7 @@ struct PhoneContentView: View {
                         }
 
                         privacySection("Zweck und Rechtsgrundlage") {
-                            Text("Die Konto- und Anmeldedaten werden zur Bereitstellung und Absicherung des App-Zugangs verarbeitet. Lokale Einstellungen und gespeicherte Kurse dienen der Rechner- und Reisefunktion. Kursanfragen dienen der angeforderten Umrechnung. Der Kursdienst kann technische Verbindungsdaten nach seinen Datenschutzinformationen verarbeiten.")
+                            Text("Die Konto- und Anmeldedaten werden zur Bereitstellung und Absicherung des App-Zugangs verarbeitet. Lokale Einstellungen und gespeicherte Kurse dienen der Rechner- und Reisefunktion. Kursanfragen dienen der angeforderten Umrechnung. Produktneuigkeiten versenden wir nur aufgrund deiner freiwilligen Einwilligung; du kannst sie jederzeit für die Zukunft widerrufen. Der Kursdienst kann technische Verbindungsdaten nach seinen Datenschutzinformationen verarbeiten.")
                         }
 
                         privacySection("Speicherdauer und Löschung") {
@@ -829,7 +844,7 @@ struct PhoneContentView: View {
                         }
 
                         privacySection("Berechtigungen und Änderungen") {
-                            Text("Die App fordert keinen Zugriff auf Kontakte, Standort, Kamera oder Fotos an. Diese Hinweise werden bei Änderungen an Funktionen, Dienstleistern oder Datenverarbeitung aktualisiert.")
+                            Text("Die App fordert für Kursalarme die iOS-Mitteilungsberechtigung an. Diese Kursalarme werden lokal auf dem Gerät ausgelöst; es gibt keine Hintergrundüberwachung. Wenn du Produktneuigkeiten per E-Mail einschaltest oder eine Support-Anfrage sendest, werden die dafür nötige E-Mail-Adresse, Betreff und Nachricht über Google Apps Script und Gmail verarbeitet. Die App fordert keinen Zugriff auf Kontakte, Standort, Kamera oder Fotos an. Diese Hinweise werden bei Änderungen an Funktionen, Dienstleistern oder Datenverarbeitung aktualisiert.")
                         }
 
                         Text("Diese Angaben beschreiben die implementierte App und ersetzen keine rechtliche Prüfung. Vor öffentlicher Verteilung müssen Betreiberangaben und tatsächliche Datenverarbeitung geprüft werden.")
@@ -1123,7 +1138,6 @@ private final class LocalNotificationTester: NSObject, ObservableObject, UNUserN
             return "Die Test-Benachrichtigung konnte nicht geplant werden: \(error.localizedDescription)"
         }
     }
-
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -1132,3 +1146,4 @@ private final class LocalNotificationTester: NSObject, ObservableObject, UNUserN
         completionHandler([.banner, .sound, .list])
     }
 }
+#endif

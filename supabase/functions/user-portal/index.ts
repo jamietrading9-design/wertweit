@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendViaGmail } from "../_shared/gmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,15 +51,17 @@ Deno.serve(async (request) => {
     console.error("Could not load account access", accessError.message);
     return respond({ error: "Account access could not be loaded" }, 502);
   }
-  if (access?.blocked) {
-    return respond({ error: "This account is suspended" }, 403);
-  }
-
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
   } catch {
     return respond({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (access?.blocked &&
+      payload.action !== "get-email-updates" &&
+      payload.action !== "set-email-updates") {
+    return respond({ error: "This account is suspended" }, 403);
   }
 
   if (payload.action === "get-access") {
@@ -67,6 +70,39 @@ Deno.serve(async (request) => {
       proUntil,
       hasAdminPro: proUntil !== null && Date.parse(proUntil) > Date.now(),
     });
+  }
+
+  if (payload.action === "get-email-updates") {
+    const { data: preference, error } = await supabase
+      .from("email_update_preferences")
+      .select("subscribed")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      console.error("Could not load email update preference", error.message);
+      return respond({ error: "Email preferences could not be loaded" }, 502);
+    }
+    return respond({ subscribed: preference?.subscribed ?? false });
+  }
+
+  if (payload.action === "set-email-updates") {
+    if (typeof payload.subscribed !== "boolean") {
+      return respond({ error: "A valid email preference is required" }, 400);
+    }
+    const subscribed = payload.subscribed;
+    const { error } = await supabase
+      .from("email_update_preferences")
+      .upsert({
+        user_id: userId,
+        subscribed,
+        subscribed_at: subscribed ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      });
+    if (error) {
+      console.error("Could not update email update preference", error.message);
+      return respond({ error: "Email preferences could not be saved" }, 502);
+    }
+    return respond({ subscribed });
   }
 
   if (payload.action === "record-app-open") {
@@ -140,7 +176,21 @@ Deno.serve(async (request) => {
       return respond({ error: "Support request could not be sent" }, 502);
     }
 
-    return respond({ thread }, 201);
+    let adminNotified = false;
+    try {
+      const notification = await sendViaGmail(
+        ["wertweitoffiziell@gmail.com"],
+        `Neue Support-Anfrage in Wertweit: ${subject.replace(/[\r\n]/g, " ").slice(0, 100)}`,
+        `Neue Support-Anfrage von ${authData.user.email ?? "unbekannter E-Mail-Adresse"}:\n\nBetreff: ${subject}\n\n${body}`,
+      );
+      adminNotified = notification.sent === 1 && notification.failed.length === 0;
+      if (!adminNotified) {
+        console.error("Support ticket was created but its admin notification failed", notification.failed);
+      }
+    } catch (error) {
+      console.error("Support ticket was created but its admin notification could not be sent", error);
+    }
+    return respond({ thread, adminNotified }, 201);
   }
 
   return respond({ error: "Unknown action" }, 400);

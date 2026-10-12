@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import UserNotifications
 
 struct CurrencyOption: Identifiable, Hashable {
     let code: String
@@ -26,6 +27,7 @@ final class ExchangeViewModel: ObservableObject {
     @Published private(set) var isUsingCachedRates = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var triggeredRateAlert: String?
+    @Published private(set) var rateAlertStatusMessage: String?
 
     private var rates: [String: Double] = [:]
     private var ratesTask: Task<Void, Never>?
@@ -110,6 +112,54 @@ final class ExchangeViewModel: ObservableObject {
 
     func dismissTriggeredRateAlert() {
         triggeredRateAlert = nil
+    }
+
+    func dismissRateAlertStatusMessage() {
+        rateAlertStatusMessage = nil
+    }
+
+    func addRateAlert(targetCode: String, threshold: Double) async -> Bool {
+        guard threshold.isFinite, threshold > 0 else {
+            rateAlertStatusMessage = "Bitte gib einen gültigen Zielkurs ein."
+            return false
+        }
+
+        let notificationCenter = UNUserNotificationCenter.current()
+        do {
+            let settings = await notificationCenter.notificationSettings()
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                break
+            case .denied:
+                rateAlertStatusMessage = "Benachrichtigungen sind ausgeschaltet. Aktiviere sie in den iPhone-Einstellungen für Wertweit."
+                return false
+            case .notDetermined:
+                guard try await notificationCenter.requestAuthorization(options: [.alert, .sound]) else {
+                    rateAlertStatusMessage = "Ohne Benachrichtigungs-Erlaubnis kann Wertweit dich nicht über erreichte Kursziele informieren."
+                    return false
+                }
+            @unknown default:
+                rateAlertStatusMessage = "Der Benachrichtigungsstatus konnte nicht ermittelt werden."
+                return false
+            }
+        } catch {
+            rateAlertStatusMessage = "Die Benachrichtigungserlaubnis konnte nicht eingerichtet werden: \(error.localizedDescription)"
+            return false
+        }
+
+        let defaults = UserDefaults.standard
+        let savedAlerts = defaults.string(forKey: "wertweit.rateAlerts") ?? ""
+        let alerts = savedAlerts.split(separator: "|").map(String.init)
+        let entry = "\(sourceCode)-\(targetCode)-\(threshold)"
+        guard !alerts.contains(entry) else {
+            rateAlertStatusMessage = "Dieser Kursalarm ist bereits gespeichert."
+            return false
+        }
+
+        defaults.set((alerts + [entry]).joined(separator: "|"), forKey: "wertweit.rateAlerts")
+        rateAlertStatusMessage = "Kursalarm gespeichert. Er wird beim nächsten Kursabruf geprüft; im Hintergrund werden Kurse nicht überwacht."
+        refreshRate()
+        return true
     }
 
     private func parseAmount() -> Double? {
@@ -225,6 +275,24 @@ final class ExchangeViewModel: ObservableObject {
 
         guard !reachedAlerts.isEmpty else { return }
         defaults.set(pendingAlerts.joined(separator: "|"), forKey: "wertweit.rateAlerts")
-        triggeredRateAlert = reachedAlerts.joined(separator: "\n")
+        let message = reachedAlerts.joined(separator: "\n")
+        triggeredRateAlert = message
+
+        let content = UNMutableNotificationContent()
+        content.title = "Kursziel erreicht"
+        content.body = message
+        content.sound = .default
+        let request = UNNotificationRequest(
+            identifier: "wertweit-rate-alert-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                triggeredRateAlert = "\(message)\n\nDie Gerätebenachrichtigung konnte nicht gesendet werden: \(error.localizedDescription)"
+            }
+        }
     }
 }
