@@ -320,11 +320,13 @@ struct PhoneContentView: View {
                     Label("Test-Benachrichtigung", systemImage: "bell.badge")
                 }
 
+                #if !WERTWEIT_REMOTE_PUSH_DISABLED
                 Button {
                     Task { notificationTestMessage = await notificationTester.enablePushNotifications() }
                 } label: {
                     Label("Push-Benachrichtigungen aktivieren", systemImage: "bell.and.waves.left.and.right")
                 }
+                #endif
 
                 Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
                     Label("Abo verwalten", systemImage: "creditcard")
@@ -1197,6 +1199,9 @@ private final class LocalNotificationTester: NSObject, ObservableObject, UNUserN
     }
 
     func registerIfAuthorized() async {
+        #if WERTWEIT_REMOTE_PUSH_DISABLED
+        return
+        #else
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         guard settings.authorizationStatus == .authorized ||
             settings.authorizationStatus == .provisional ||
@@ -1204,6 +1209,7 @@ private final class LocalNotificationTester: NSObject, ObservableObject, UNUserN
         await MainActor.run {
             UIApplication.shared.registerForRemoteNotifications()
         }
+        #endif
     }
 
     func userNotificationCenter(
