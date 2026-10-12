@@ -375,7 +375,9 @@
           const { user } = result;
           const role = document.querySelector("#new-user-admin").checked ? "Admin-Einladung" : "Einladung";
           const message = result.resent
-            ? `Bestätigung für ${user.email} erneut gesendet.`
+            ? result.emailType === "recovery"
+              ? `Das Konto für ${user.email} ist bereits bestätigt. Ein Link zum Passwort-Setzen wurde an die Adresse gesendet.`
+              : `Bestätigung für ${user.email} erneut gesendet.`
             : `${role} an ${user.email} gesendet.`;
           setStatus(document.querySelector("#create-user-status"), message, "success");
           event.currentTarget.reset();

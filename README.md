@@ -38,6 +38,8 @@ Die iPhone-App verwendet Supabase Auth/REST-Endpunkte direkt mit `URLSession`; l
 6. Ein Admin-Konto anlegen und im **App Metadata** `{"role":"admin"}` setzen (nicht in User Metadata). Danach in `website/admin.html` anmelden. Nur Administratoren sollten weitere Admin-Einladungen erstellen.
 7. `Kursklar.xcodeproj` öffnen und die iPhone-App neu bauen/installieren. Kontoregistrierung, Anmeldung und Wartungsstatus verwenden dasselbe Supabase-Projekt.
 
+Im Adminbereich kann eine Einladung erneut gesendet werden: Bei einem unbestätigten Konto wird die Registrierungsbestätigung erneut versendet; bei einem bereits bestätigten Konto erhält der Nutzer stattdessen einen Link zum Setzen des Passworts. Beides benötigt funktionierenden SMTP-Versand und die erlaubte Redirect-URL.
+
 Das im Supabase-Dashboard angebotene MCP-Kommando `claude mcp add ...` ist nur für Claude Code und in deinem Screenshot schreibgeschützt. Es ist nicht die App-Verbindung. Dafür in Supabase die Client-Library-Integration wählen; für Kontolisten und privilegierte Admin-Aktionen werden Edge Functions verwendet. Keine direkte Datenbank-Connection-String-Verbindung aus iPhone oder Website.
 
 ## GitHub

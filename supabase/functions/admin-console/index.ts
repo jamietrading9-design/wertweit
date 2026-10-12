@@ -117,12 +117,22 @@ Deno.serve(async (request) => {
           },
         });
         if (!resendError) {
-          return respond({ user: { email }, resent: true });
+          return respond({ user: { email }, resent: true, emailType: "signup" });
         }
 
-        console.error("Could not resend account confirmation", resendError.message);
+        const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: "https://jamietrading9-design.github.io/wertweit/set-password.html",
+        });
+        if (!recoveryError) {
+          return respond({ user: { email }, resent: true, emailType: "recovery" });
+        }
+
+        console.error("Could not resend account confirmation or password setup email", {
+          confirmationError: resendError.message,
+          recoveryError: recoveryError.message,
+        });
         return respond({
-          error: "Für diese E-Mail gibt es bereits ein Konto. Eine Bestätigung kann nur für ein noch unbestätigtes Konto erneut gesendet werden. Falls das Konto bereits bestätigt ist, muss sich der Nutzer anmelden oder sein Passwort zurücksetzen.",
+          error: "Für diese E-Mail besteht bereits ein Konto, aber Supabase konnte weder den Bestätigungs- noch den Passwort-Link versenden. Prüfe SMTP/E-Mail-Limits und die Redirect-URL in Supabase.",
         }, 409);
       }
 
