@@ -1,0 +1,10 @@
+project_id = "wertweit"
+
+[functions.admin-console]
+verify_jwt = false
+
+[functions.account-delete]
+verify_jwt = false
+
+[functions.user-portal]
+verify_jwt = false

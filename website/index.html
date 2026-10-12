@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123c31">
+  <meta name="description" content="Mit Wertweit kannst du Währungen umrechnen, EZB-Referenzkurse prüfen und Reiseausgaben planen.">
+  <title>Wertweit – Währungsrechner für unterwegs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --forest: #123c31;
+      --forest-deep: #0b2b24;
+      --leaf: #1c6a4f;
+      --lime: #d8f06b;
+      --paper: #f4f5ef;
+      --white: #fff;
+      --ink: #14241f;
+      --muted: #69746d;
+      --line: rgba(20, 36, 31, .13);
+      --serif: "Fraunces", Georgia, serif;
+      --sans: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    button, input, select { font: inherit; }
+    .site-header {
+      position: absolute; inset: 0 0 auto; z-index: 3; display: flex; align-items: center;
+      justify-content: space-between; width: min(1280px, calc(100% - 64px)); height: 92px; margin: auto; left: 0; right: 0;
+      color: var(--white);
+    }
+    .brand { display: inline-flex; gap: 12px; align-items: center; text-decoration: none; font-weight: 700; font-size: 17px; }
+    .brand img { width: 42px; height: 42px; border-radius: 12px; }
+    .brand small { display: block; color: var(--lime); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .nav { display: flex; gap: 30px; align-items: center; font-size: 13px; font-weight: 600; }
+    .nav a { text-decoration: none; }
+    .nav a:hover { color: var(--lime); }
+    .nav .nav-cta { padding: 12px 17px; border-radius: 4px; background: var(--lime); color: var(--forest-deep); }
+    .hero {
+      position: relative; display: flex; min-height: 720px; min-height: min(850px, 96svh); align-items: center; overflow: hidden;
+      background: var(--forest-deep) url("assets/alpine-hiker.jpg") center 48% / cover no-repeat; color: white;
+    }
+    .hero::before { position: absolute; inset: 0; content: ""; background: rgba(8, 34, 28, .49); }
+    .hero-inner { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 70px; align-items: center; width: min(1180px, calc(100% - 64px)); margin: 88px auto 35px; }
+    .hero-copy { max-width: 720px; padding: 48px 0 60px; }
+    .eyebrow { margin: 0 0 18px; color: var(--lime); font-size: 11px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { max-width: 740px; margin: 0; font-family: var(--serif); font-size: clamp(60px, 8vw, 104px); font-weight: 500; line-height: .94; }
+    .hero-copy > p:not(.eyebrow) { max-width: 520px; margin: 25px 0 30px; color: rgba(255,255,255,.88); font-size: 18px; line-height: 1.65; }
+    .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .button { display: inline-flex; min-height: 50px; align-items: center; justify-content: center; padding: 0 21px; border: 1px solid transparent; border-radius: 4px; font-size: 13px; font-weight: 700; text-decoration: none; transition: transform .2s ease, background .2s ease; }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: var(--lime); color: var(--forest-deep); }
+    .button-quiet { border-color: rgba(255,255,255,.54); color: white; }
+    .hero-note { margin-top: 17px; color: rgba(255,255,255,.7); font-size: 11px; }
+    .watch-label { display: inline-flex; gap: 9px; align-items: center; margin-top: 24px; color: rgba(255,255,255,.88); font-size: 12px; }
+    .watch-label span { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
+    .device { width: 290px; justify-self: center; padding: 14px; border: 1px solid rgba(255,255,255,.6); border-radius: 42px; background: rgba(11, 38, 31, .8); box-shadow: 0 35px 90px rgba(0,0,0,.34); transform: rotate(2deg); backdrop-filter: blur(12px); }
+    .device-screen { min-height: 455px; padding: 23px 19px; border-radius: 30px; background: #f5f7f0; color: var(--ink); }
+    .screen-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; font-size: 11px; font-weight: 700; }
+    .screen-mark { color: var(--leaf); }
+    .screen-label { color: #7b857d; font-size: 9px; font-weight: 700; letter-spacing: .14em; }
+    .currency-line { display: flex; align-items: end; justify-content: space-between; margin: 11px 0 18px; }
+    .currency-line strong { display: block; font-size: 20px; }
+    .currency-line span { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+    .currency-line .amount { color: var(--leaf); font-size: 23px; font-weight: 700; }
+    .swap-line { display: flex; align-items: center; gap: 10px; color: #9aa29b; }
+    .swap-line::before, .swap-line::after { height: 1px; flex: 1; background: #d9ded7; content: ""; }
+    .swap { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--leaf); color: white; font-size: 16px; }
+    .screen-rate { margin-top: 27px; padding-top: 14px; border-top: 1px solid #dce1da; color: #5c6b61; font-size: 10px; line-height: 1.7; }
+    .screen-rate b { color: var(--leaf); }
+    .screen-tabs { display: flex; justify-content: space-between; margin-top: 39px; padding-top: 15px; border-top: 1px solid #dce1da; color: #7e887f; font-size: 8px; }
+    .screen-tabs b { color: var(--leaf); }
+    .trust-strip { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(3, 1fr); width: min(1180px, calc(100% - 64px)); margin: -1px auto 0; background: var(--forest); color: white; }
+    .trust-item { padding: 23px 28px; border-right: 1px solid rgba(255,255,255,.16); }
+    .trust-item:last-child { border: 0; }
+    .trust-item strong { display: block; color: var(--lime); font-size: 13px; }
+    .trust-item span { display: block; margin-top: 5px; color: rgba(255,255,255,.72); font-size: 11px; }
+    .section { padding: 110px 32px; }
+    .section-inner { width: min(1120px, 100%); margin: auto; }
+    .section-heading { display: grid; grid-template-columns: 1fr minmax(240px, 430px); gap: 50px; align-items: end; margin-bottom: 52px; }
+    .section-kicker { margin: 0 0 13px; color: var(--leaf); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+    h2 { margin: 0; font-family: var(--serif); font-size: clamp(40px, 5.3vw, 64px); font-weight: 500; line-height: 1.02; }
+    .section-heading > p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.75; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .feature { min-height: 215px; padding: 26px 24px 28px 0; border-right: 1px solid var(--line); }
+    .feature + .feature { padding-left: 25px; }
+    .feature:last-child { border: 0; }
+    .feature-number { display: block; margin-bottom: 42px; color: var(--leaf); font-family: var(--serif); font-size: 22px; }
+    .feature h3 { margin: 0 0 9px; font-family: var(--serif); font-size: 24px; font-weight: 500; }
+    .feature p { max-width: 290px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .pro-section { background: #fff; }
+    .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .plan { padding: 30px; border: 1px solid var(--line); }
+    .plan-pro { border-top: 4px solid var(--leaf); background: #f7f9f3; }
+    .plan-label { margin: 0 0 12px; color: var(--leaf); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .plan h3 { margin: 0; font-family: var(--serif); font-size: 30px; font-weight: 500; }
+    .plan-intro { min-height: 48px; margin: 9px 0 22px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .plan ul { display: grid; gap: 12px; margin: 0; padding: 20px 0 0; border-top: 1px solid var(--line); list-style: none; }
+    .plan li { position: relative; padding-left: 22px; color: var(--ink); font-size: 13px; line-height: 1.55; }
+    .plan li::before { position: absolute; left: 0; color: var(--leaf); content: "✓"; font-weight: 700; }
+    .trial-note { margin: 25px 0 0; padding: 16px 18px; border-left: 3px solid var(--leaf); background: #edf2e8; color: var(--muted); font-size: 12px; line-height: 1.7; }
+    .trial-note strong { color: var(--ink); }
+    .demo { background: #e9ede4; }
+    .demo-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(360px, 1fr); gap: 80px; align-items: center; }
+    .demo-copy p { max-width: 450px; color: var(--muted); font-size: 15px; line-height: 1.75; }
+    .demo-copy .demo-caveat { font-size: 11px; }
+    .converter { padding: 30px; border-top: 4px solid var(--leaf); background: var(--white); box-shadow: 0 24px 55px rgba(25, 49, 38, .09); }
+    .converter-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    .converter-head h3 { margin: 0; font-family: var(--serif); font-size: 23px; font-weight: 500; }
+    .rate-status { display: inline-flex; gap: 7px; align-items: center; color: var(--muted); font-size: 10px; }
+    .rate-dot { width: 7px; height: 7px; border-radius: 50%; background: #b4b9b2; }
+    .rate-dot.ready { background: #31845e; }
+    .rate-dot.stale { background: #c18b37; }
+    .input-row { display: grid; grid-template-columns: minmax(0, 1fr) 135px; gap: 10px; margin-top: 9px; }
+    .input-row input, .input-row select { width: 100%; height: 55px; padding: 0 13px; border: 1px solid #dce2db; border-radius: 3px; background: #fafbf8; color: var(--ink); }
+    .input-row input { font-size: 20px; font-weight: 600; }
+    .input-label { margin-top: 19px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+    .demo-result { margin-top: 23px; padding-top: 21px; border-top: 1px solid var(--line); }
+    .demo-result small { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; }
+    .demo-result strong { display: block; color: var(--leaf); font-size: clamp(25px, 4vw, 36px); overflow-wrap: anywhere; }
+    .demo-date { margin-top: 9px; color: var(--muted); font-size: 10px; }
+    .swap-button { display: inline-grid; width: 38px; height: 38px; margin: 16px 0 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: white; color: var(--leaf); cursor: pointer; }
+    .triptych { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
+    .triptych figure { position: relative; min-height: 430px; margin: 0; overflow: hidden; background: #263d34; }
+    .triptych figure:last-child { min-height: 320px; margin-top: 110px; }
+    .triptych img { position: absolute; width: 100%; height: 100%; object-fit: cover; transition: transform .8s ease; }
+    .triptych figure:hover img { transform: scale(1.035); }
+    .triptych figcaption { position: absolute; inset: auto 0 0; padding: 25px; color: white; background: rgba(10, 34, 27, .66); }
+    .triptych figcaption span { display: block; margin-bottom: 7px; color: var(--lime); font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+    .triptych figcaption strong { font-family: var(--serif); font-size: 25px; font-weight: 500; }
+    .download { position: relative; overflow: hidden; background: var(--forest); color: white; }
+    .download-inner { display: grid; grid-template-columns: 1fr auto; gap: 50px; align-items: center; }
+    .download h2 { max-width: 640px; }
+    .download p { max-width: 540px; margin: 20px 0 0; color: rgba(255,255,255,.72); font-size: 14px; line-height: 1.7; }
+    .store-button { display: inline-flex; min-width: 230px; min-height: 58px; align-items: center; justify-content: center; gap: 12px; padding: 10px 18px; border: 1px solid rgba(255,255,255,.34); border-radius: 5px; color: rgba(255,255,255,.66); text-align: left; text-decoration: none; cursor: not-allowed; }
+    .store-button b { display: block; color: white; font-size: 14px; }
+    .store-button small { display: block; margin-top: 2px; font-size: 9px; }
+    .store-icon { font-size: 22px; }
+    .fineprint { margin-top: 20px; color: rgba(255,255,255,.57); font-size: 10px; }
+    .footer { padding: 28px 32px; background: var(--forest-deep); color: rgba(255,255,255,.73); }
+    .footer-inner { display: flex; width: min(1120px, 100%); align-items: center; justify-content: space-between; gap: 20px; margin: auto; font-size: 11px; }
+    .footer a { text-decoration: none; }
+    .footer-links { display: flex; gap: 22px; }
+    .legal-note { padding: 20px 32px; background: #09251f; color: rgba(255,255,255,.56); font-size: 10px; line-height: 1.7; text-align: center; }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } .reveal { opacity: 1; transform: none; } }
+    @media (max-width: 800px) {
+      .site-header { width: calc(100% - 36px); height: 76px; }
+      .nav { gap: 14px; }
+      .nav a:not(.nav-cta) { display: none; }
+      .hero { min-height: 940px; min-height: 100svh; align-items: start; background-position: 42% center; }
+      .hero::before { background: rgba(8, 34, 28, .6); }
+      .hero-inner { grid-template-columns: 1fr; gap: 8px; width: calc(100% - 40px); margin-top: 100px; }
+      .hero-copy { padding: 24px 0 0; }
+      h1 { max-width: 500px; font-size: clamp(60px, 15vw, 84px); }
+      .hero-copy > p:not(.eyebrow) { margin: 18px 0 22px; font-size: 16px; }
+      .device { width: 235px; justify-self: end; margin: 0 10px 10px 0; padding: 10px; border-radius: 34px; }
+      .device-screen { min-height: 338px; padding: 17px 15px; border-radius: 25px; }
+      .screen-top { margin-bottom: 23px; }
+      .currency-line { margin: 8px 0 12px; }
+      .screen-rate { margin-top: 18px; }
+      .screen-tabs { margin-top: 24px; }
+      .trust-strip { grid-template-columns: 1fr; width: 100%; }
+      .trust-item { padding: 16px 22px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.16); }
+      .section { padding: 78px 20px; }
+      .section-heading, .demo-grid { grid-template-columns: 1fr; gap: 23px; }
+      .features { grid-template-columns: 1fr; }
+      .feature, .feature + .feature { min-height: 0; padding: 20px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+      .feature:last-child { border-bottom: 0; }
+      .feature-number { margin-bottom: 20px; }
+      .plans { grid-template-columns: 1fr; }
+      .plan { padding: 23px; }
+      .demo-grid { gap: 34px; }
+      .converter { padding: 22px 17px; }
+      .input-row { grid-template-columns: minmax(0, 1fr) 112px; gap: 7px; }
+      .triptych { grid-template-columns: 1fr; }
+      .triptych figure, .triptych figure:last-child { min-height: 360px; margin: 0; }
+      .download-inner { grid-template-columns: 1fr; gap: 32px; }
+      .store-button { justify-self: start; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+      .footer-links { flex-wrap: wrap; }
+    }
+    @media (max-width: 390px) {
+      .brand { font-size: 15px; }
+      .brand img { width: 36px; height: 36px; }
+      .button { padding: 0 15px; font-size: 12px; }
+      .device { width: 220px; }
+      .hero { min-height: 900px; min-height: 100svh; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#start" aria-label="Wertweit Startseite">
+      <img src="assets/wertweit-logo.png" alt="">
+      <span>Wertweit<small>Währungsrechner für unterwegs</small></span>
+    </a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#vorschau">Vorschau</a>
+      <a href="#pro">Wertweit Pro</a>
+      <a class="nav-cta" href="#download">Zur App</a>
+    </nav>
+  </header>
+
+  <main id="start">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Währungsrechner für unterwegs</p>
+          <h1 id="hero-title">Wertweit</h1>
+          <p>Rechne Währungen um und sieh, von wann der verwendete EZB-Referenzkurs ist. Der zuletzt geladene Kurs bleibt auch ohne Internet verfügbar. Dazu gibt es Richtwerte für Reiseausgaben.</p>
+          <div class="actions">
+            <a class="button button-primary" href="#download">App-Informationen <span aria-hidden="true">&nbsp;↗</span></a>
+            <a class="button button-quiet" href="#vorschau">Web-Rechner öffnen</a>
+          </div>
+          <p class="hero-note">Für iPhone · Konto erforderlich · Rechner kostenlos</p>
+          <div class="watch-label"><span></span> Gespeicherte Kurse auch ohne Internet</div>
+        </div>
+        <div class="device" aria-label="Vorschau des Wertweit-Währungsrechners">
+          <div class="device-screen">
+            <div class="screen-top"><span class="screen-mark">Wertweit</span><span>REFERENZKURS</span></div>
+            <div class="screen-label">ICH HABE</div>
+            <div class="currency-line"><div><strong>EUR</strong><span>Euro</span></div><span class="amount">100,00 €</span></div>
+            <div class="swap-line"><span class="swap" aria-hidden="true">↕</span></div>
+            <div class="screen-label" style="margin-top:18px">ICH ERHALTE</div>
+            <div class="currency-line"><div><strong>USD</strong><span>US-Dollar</span></div><span class="amount">—</span></div>
+            <div class="screen-rate">EZB-Referenzkurs<br><b>mit Kursdatum</b><br>Das Datum steht in der App</div>
+            <div class="screen-tabs"><b>Rechner</b><span>Reise</span><span>Wechseln</span><span>Übersicht</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="trust-strip" aria-label="Wertweit auf einen Blick">
+      <div class="trust-item"><strong>EZB-Referenzkurse</strong><span>Mit Datum des verwendeten Kurses</span></div>
+      <div class="trust-item"><strong>Auch ohne Internet</strong><span>Der zuletzt geladene Kurs bleibt gespeichert</span></div>
+      <div class="trust-item"><strong>Richtwerte für Reisen</strong><span>Hinweise zu Kaufkraft und Tagesbudget</span></div>
+    </div>
+
+    <section class="section" id="funktionen">
+      <div class="section-inner">
+        <div class="section-heading reveal">
+          <div><p class="section-kicker">Die Funktionen</p><h2>Umrechnen und Reiseausgaben planen.</h2></div>
+          <p>Wertweit zeigt Referenzkurse, hilft beim Vergleichen von Wechselgebühren und bietet grobe Preis- und Budgethinweise für ausgewählte Reiseziele. Für die App ist ein Konto erforderlich.</p>
+        </div>
+        <div class="features reveal">
+          <article class="feature"><span class="feature-number">01</span><h3>Währungen umrechnen</h3><p>Beträge umrechnen und das Datum des verwendeten Referenzkurses ansehen.</p></article>
+          <article class="feature"><span class="feature-number">02</span><h3>Wechselgebühren vergleichen</h3><p>Gebühren und angebotene Kurse mit dem Referenzkurs vergleichen.</p></article>
+          <article class="feature"><span class="feature-number">03</span><h3>Reiseausgaben planen</h3><p>Richtwerte für Kaufkraft, Trinkgeld und Tagesbudget in ausgewählten Ländern ansehen.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section pro-section" id="pro" aria-labelledby="pro-title">
+      <div class="section-inner">
+        <div class="section-heading reveal">
+          <div><p class="section-kicker">Kostenlos starten, bei Bedarf erweitern</p><h2 id="pro-title">Der Rechner bleibt kostenlos. Pro plant die Reise mit.</h2></div>
+          <p>Mit einem kostenlosen Konto bleibt die schnelle Umrechnung gratis. Wertweit Pro bündelt die weiterführenden Reise- und Analysefunktionen an einem Ort.</p>
+        </div>
+        <div class="plans reveal">
+          <article class="plan">
+            <p class="plan-label">Immer dabei</p>
+            <h3>Kostenlos</h3>
+            <p class="plan-intro">Für den schnellen Währungscheck unterwegs.</p>
+            <ul>
+              <li>Währungen mit EZB-Referenzkurs umrechnen</li>
+              <li>Kursdatum sehen und zuletzt geladene Kurse offline nutzen</li>
+              <li>Kostenloses Konto, kein Pro-Abo nötig</li>
+            </ul>
+          </article>
+          <article class="plan plan-pro">
+            <p class="plan-label">Für mehr Reiseüberblick</p>
+            <h3>Wertweit Pro</h3>
+            <p class="plan-intro">Mehr Orientierung beim Planen, Vergleichen und Beobachten.</p>
+            <ul>
+              <li>Beispielpreise, Tagesbudgets und Trinkgeldhinweise</li>
+              <li>Gebühren vergleichen und Beträge rückwärts berechnen</li>
+              <li>Historische Kurse, Mehrfachwährungen und Favoriten</li>
+              <li>Kursziele für ausgewählte Währungen festlegen</li>
+            </ul>
+          </article>
+        </div>
+        <p class="trial-note"><strong>Geplant: 7 Tage kostenlos testen.</strong> Die Testphase ist für den App-Start vorgesehen. Ob sie für deinen Apple Account verfügbar ist und welcher Preis danach gilt, zeigt Apple vor dem Abschluss. Das Abo verlängert sich automatisch, bis es über den Apple Account gekündigt wird.</p>
+      </div>
+    </section>
+
+    <section class="section demo" id="vorschau">
+      <div class="section-inner demo-grid">
+        <div class="demo-copy reveal">
+          <p class="section-kicker">Web-Rechner</p>
+          <h2>Währungen hier umrechnen.</h2>
+          <p>Wähle einen Betrag und zwei Währungen. Der Rechner zeigt den verfügbaren EZB-Referenzkurs und sein Datum. Ohne Verbindung verwendet er einen zuvor geladenen Kurs.</p>
+          <p class="demo-caveat">Referenzkurse sind keine garantierten Wechselstuben- oder Kartenanbieter-Kurse. Gebühren und Aufschläge können abweichen.</p>
+        </div>
+        <div class="converter reveal" aria-label="Interaktiver Währungsrechner">
+          <div class="converter-head"><h3>Währungsrechner</h3><span class="rate-status"><i class="rate-dot" id="rate-dot"></i><span id="rate-status">Kurs wird geladen</span></span></div>
+          <label class="input-label" for="amount">ICH HABE</label>
+          <div class="input-row"><input id="amount" type="number" min="0" step="any" value="100" inputmode="decimal" aria-label="Betrag"><select id="base" aria-label="Ausgangswährung"><option value="EUR">EUR · Euro</option><option value="USD">USD · US-Dollar</option><option value="GBP">GBP · Pfund</option><option value="CHF">CHF · Franken</option><option value="JPY">JPY · Yen</option></select></div>
+          <button class="swap-button" id="swap" type="button" aria-label="Währungen tauschen">↕</button>
+          <label class="input-label" for="quote">ICH ERHALTE</label>
+          <div class="input-row"><div></div><select id="quote" aria-label="Zielwährung"><option value="USD">USD · US-Dollar</option><option value="EUR">EUR · Euro</option><option value="GBP">GBP · Pfund</option><option value="CHF">CHF · Franken</option><option value="JPY">JPY · Yen</option></select></div>
+          <div class="demo-result"><small>Ungefährer Referenzwert</small><strong id="result">—</strong><div class="demo-date" id="rate-date">Kursdatum wird geladen.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Wertweit für unterwegs">
+      <div class="section-inner">
+        <div class="section-heading reveal">
+          <div><p class="section-kicker">Weitere Reise-Funktionen</p><h2>Auch Gebühren und Preise im Blick.</h2></div>
+          <p>Die App enthält außerdem einen Gebührenvergleich und Preis-Richtwerte für ausgewählte Reiseziele.</p>
+        </div>
+        <div class="triptych reveal">
+          <figure><img src="assets/red-rock-road.jpg" alt="Straße durch eine weite Landschaft aus roten Felsen" loading="lazy"><figcaption><span>Geld wechseln</span><strong>Gebühren und Kurse vergleichen</strong></figcaption></figure>
+          <figure><img src="assets/city-evening.jpg" alt="Belebte Innenstadt bei Abendlicht" loading="lazy"><figcaption><span>Reisebudget</span><strong>Lokale Preise einschätzen</strong></figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section download" id="download">
+      <div class="section-inner download-inner">
+        <div class="reveal">
+          <p class="section-kicker">Wertweit für iPhone</p>
+          <h2>Die App ist noch nicht im App Store.</h2>
+          <p>Bis zur Veröffentlichung kannst du den Web-Rechner auf dieser Seite nutzen. Bei Fragen erreichst du uns per E-Mail.</p>
+          <p class="fineprint">Wertweit zeigt EZB-Referenzkurse und unverbindliche Reise-Richtwerte. Kein offizielles Produkt der Europäischen Zentralbank und keine Finanzberatung.</p>
+        </div>
+        <div class="reveal">
+          <span class="store-button" aria-disabled="true"><span class="store-icon" aria-hidden="true"></span><span><b>Noch nicht verfügbar</b><small>App Store · iPhone</small></span></span>
+          <p class="fineprint"><a href="mailto:jamie.trading.9@gmail.com">Kontakt per E-Mail</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer">
+      <div class="footer-inner"><a class="brand" href="#start"><img src="assets/wertweit-logo.png" alt=""><span>Wertweit<small>Währungsrechner für unterwegs</small></span></a><div>© <span id="year"></span> Wertweit</div><nav class="footer-links" aria-label="Rechtliches"><a href="#impressum">Impressum</a><a href="#datenschutz">Datenschutz</a><a href="https://www.frankfurter.dev/" target="_blank" rel="noreferrer">Kursquelle</a></nav></div>
+    </div>
+    <div class="legal-note"><span id="impressum">Anbieter: Jamie Lübcke · <a href="mailto:jamie.trading.9@gmail.com">jamie.trading.9@gmail.com</a>. Vollständige Anbieterangaben bitte vor Veröffentlichung ergänzen.</span><br><span id="datenschutz">Die Web-Vorschau verarbeitet Beträge nur im Browser. Kursanfragen gehen an api.frankfurter.dev; technische Verbindungsdaten können dort verarbeitet werden. Die iPhone-App benötigt ein Konto; Supabase verarbeitet dafür E-Mail-Adresse und Kontodaten. Vor Veröffentlichung Datenschutzangaben und Hostingregion ergänzen.</span><br>Fotos: Unsplash, gemäß Unsplash-Lizenz. Quellen: <a href="https://unsplash.com/license" target="_blank" rel="noreferrer">unsplash.com/license</a>.</div>
+  </footer>
+
+  <script>
+    const amountInput = document.querySelector("#amount");
+    const baseSelect = document.querySelector("#base");
+    const quoteSelect = document.querySelector("#quote");
+    const resultLabel = document.querySelector("#result");
+    const statusLabel = document.querySelector("#rate-status");
+    const statusDot = document.querySelector("#rate-dot");
+    const dateLabel = document.querySelector("#rate-date");
+    let activeRate = null;
+    let requestNumber = 0;
+
+    function renderAmount() {
+      if (!activeRate) return;
+      const amount = Number(amountInput.value);
+      if (!Number.isFinite(amount) || amount < 0) {
+        resultLabel.textContent = "Betrag prüfen";
+        return;
+      }
+      resultLabel.textContent = new Intl.NumberFormat("de-DE", { style: "currency", currency: quoteSelect.value, maximumFractionDigits: 2 }).format(amount * activeRate);
+    }
+
+    async function loadRate() {
+      const currentRequest = ++requestNumber;
+      const base = baseSelect.value;
+      const quote = quoteSelect.value;
+      statusLabel.textContent = "Kurs wird geladen";
+      statusDot.className = "rate-dot";
+      dateLabel.textContent = "EZB-Referenzkurs · Verbindung wird hergestellt";
+      if (base === quote) {
+        activeRate = 1;
+        statusLabel.textContent = "Gleiche Währung";
+        statusDot.className = "rate-dot ready";
+        dateLabel.textContent = "1 zu 1 · kein Wechselkurs nötig";
+        renderAmount();
+        return;
+      }
+      try {
+        const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(quote)}`);
+        if (!response.ok) throw new Error("Kursdienst nicht verfügbar");
+        const payload = await response.json();
+        if (currentRequest !== requestNumber) return;
+        const rate = payload.rates?.[quote];
+        if (!Number.isFinite(rate)) throw new Error("Kein Kurs für dieses Paar");
+        activeRate = rate;
+        localStorage.setItem(`wertweit-rate-${base}-${quote}`, JSON.stringify({ rate, date: payload.date }));
+        statusLabel.textContent = "Referenzkurs";
+        statusDot.className = "rate-dot ready";
+        dateLabel.textContent = `EZB-Referenzkurs · Stand ${new Intl.DateTimeFormat("de-DE", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${payload.date}T00:00:00Z`))}`;
+        renderAmount();
+      } catch {
+        if (currentRequest !== requestNumber) return;
+        const cached = localStorage.getItem(`wertweit-rate-${base}-${quote}`);
+        if (cached) {
+          const saved = JSON.parse(cached);
+          activeRate = saved.rate;
+          statusLabel.textContent = "Gespeicherter Kurs";
+          statusDot.className = "rate-dot stale";
+          dateLabel.textContent = `Offline · Kursstand ${saved.date}`;
+          renderAmount();
+        } else {
+          activeRate = null;
+          resultLabel.textContent = "—";
+          statusLabel.textContent = "Nicht verfügbar";
+          statusDot.className = "rate-dot stale";
+          dateLabel.textContent = "Keine Verbindung und noch kein gespeicherter Kurs.";
+        }
+      }
+    }
+
+    amountInput.addEventListener("input", renderAmount);
+    baseSelect.addEventListener("change", loadRate);
+    quoteSelect.addEventListener("change", loadRate);
+    document.querySelector("#swap").addEventListener("click", () => {
+      const currentBase = baseSelect.value;
+      baseSelect.value = quoteSelect.value;
+      quoteSelect.value = currentBase;
+      loadRate();
+    });
+    document.querySelector("#year").textContent = new Date().getFullYear();
+
+    const revealObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          revealObserver.unobserve(entry.target);
+        }
+      }
+    }, { threshold: .12 });
+    document.querySelectorAll(".reveal").forEach(element => revealObserver.observe(element));
+    loadRate();
+  </script>
+</body>
+</html>

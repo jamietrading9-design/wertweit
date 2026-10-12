@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+build/
+.swiftpm/
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+node_modules/
+197BB923-9B62-4EC9-86C0-A152C7ED58F3.PNG
+*.xcuserstate
+*.xcuserdata/
