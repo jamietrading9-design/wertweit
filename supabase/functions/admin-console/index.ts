@@ -100,12 +100,41 @@ Deno.serve(async (request) => {
     if (payload.admin !== undefined && typeof payload.admin !== "boolean") {
       return respond({ error: "Invalid account role" }, 400);
     }
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(payload.email.trim(), {
+    const email = payload.email.trim();
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: "https://jamietrading9-design.github.io/wertweit/set-password.html",
     });
     if (error) {
+      const alreadyRegistered = error.code === "email_exists" ||
+        error.message.toLowerCase().includes("already registered") ||
+        error.message.toLowerCase().includes("already been registered");
+      if (alreadyRegistered && payload.admin !== true) {
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email,
+          options: {
+            emailRedirectTo: "https://jamietrading9-design.github.io/wertweit/set-password.html",
+          },
+        });
+        if (!resendError) {
+          return respond({ user: { email }, resent: true });
+        }
+
+        console.error("Could not resend account confirmation", resendError.message);
+        return respond({
+          error: "Für diese E-Mail gibt es bereits ein Konto. Eine Bestätigung kann nur für ein noch unbestätigtes Konto erneut gesendet werden. Falls das Konto bereits bestätigt ist, muss sich der Nutzer anmelden oder sein Passwort zurücksetzen.",
+        }, 409);
+      }
+
       console.error("Could not invite account", error.message);
-      return respond({ error: "Invitation could not be sent. Check the Auth email and SMTP settings." }, 502);
+      if (alreadyRegistered) {
+        return respond({
+          error: "Diese E-Mail-Adresse hat bereits ein Konto. Aus Sicherheitsgründen wird einem bestehenden Konto über diese Einladung keine Admin-Rolle hinzugefügt.",
+        }, 409);
+      }
+      return respond({
+        error: `Einladung konnte nicht verschickt werden: ${error.message}. Prüfe Supabase Authentication > SMTP Settings und die E-Mail-Vorlage.`,
+      }, 502);
     }
     if (payload.admin === true) {
       const { error: roleError } = await supabase.auth.admin.updateUserById(data.user.id, {
