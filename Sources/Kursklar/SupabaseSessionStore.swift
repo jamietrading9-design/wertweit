@@ -57,6 +57,8 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var configurationError: String?
     @Published private(set) var isBlocked = false
     @Published private(set) var adminProUntil: String?
+    @Published private(set) var isAwaitingEmailConfirmation = false
+    @Published private(set) var emailConfirmationEmail = ""
     @Published private(set) var supportThreads: [WertweitSupportThread] = []
 
     private let projectURL: URL?
@@ -97,7 +99,7 @@ final class SupabaseSessionStore: ObservableObject {
         if session != nil {
             do {
                 try await refreshSessionIfNeeded()
-            } catch SupabaseRequestError.invalidResponse(let status) where status == 400 || status == 401 {
+            } catch SupabaseRequestError.invalidResponse(let status, _) where status == 400 || status == 401 {
                 do {
                     try SessionKeychain.delete()
                     session = nil
@@ -124,12 +126,17 @@ final class SupabaseSessionStore: ObservableObject {
             )
             try storeSession(from: response)
         } catch {
-            statusMessage = "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort und versuche es erneut."
+            if requiresEmailConfirmation(error) {
+                emailConfirmationEmail = email
+                isAwaitingEmailConfirmation = true
+            }
+            statusMessage = authenticationStatusMessage(for: error, operation: .signIn)
         }
     }
 
     func signUp(email: String, password: String) async {
         statusMessage = nil
+        isAwaitingEmailConfirmation = false
         do {
             let response = try await request(
                 path: ["auth", "v1", "signup"],
@@ -138,12 +145,53 @@ final class SupabaseSessionStore: ObservableObject {
             if let newSession = try response.makeSession() {
                 try SessionKeychain.save(newSession)
                 session = newSession
+                emailConfirmationEmail = ""
             } else {
-                statusMessage = "Bitte bestätige zuerst deine E-Mail-Adresse. Danach kannst du dich anmelden."
+                emailConfirmationEmail = email
+                isAwaitingEmailConfirmation = true
+                statusMessage = "Wir haben einen Bestätigungscode an deine E-Mail-Adresse gesendet."
             }
         } catch {
-            statusMessage = "Das Konto konnte nicht erstellt werden. Prüfe E-Mail und Passwort und versuche es erneut."
+            statusMessage = authenticationStatusMessage(for: error, operation: .signUp)
         }
+    }
+
+    func confirmEmail(code: String) async {
+        statusMessage = nil
+        do {
+            let response = try await request(
+                path: ["auth", "v1", "verify"],
+                body: VerifyEmailOTPRequest(
+                    type: "signup",
+                    email: emailConfirmationEmail,
+                    token: code
+                )
+            )
+            try storeSession(from: response)
+            isAwaitingEmailConfirmation = false
+            emailConfirmationEmail = ""
+        } catch {
+            statusMessage = authenticationStatusMessage(for: error, operation: .verifyEmail)
+        }
+    }
+
+    func resendEmailConfirmation() async {
+        statusMessage = nil
+        do {
+            _ = try await requestData(
+                path: ["auth", "v1", "resend"],
+                body: ResendEmailOTPRequest(type: "signup", email: emailConfirmationEmail)
+            )
+            statusMessage = "Wenn die Adresse noch nicht bestätigt ist, wurde ein neuer Code gesendet."
+        } catch {
+            statusMessage = authenticationStatusMessage(for: error, operation: .resendEmail)
+        }
+    }
+
+    func cancelEmailConfirmation() {
+        isAwaitingEmailConfirmation = false
+        emailConfirmationEmail = ""
+        statusMessage = nil
     }
 
     func resetPassword(email: String) async {
@@ -184,6 +232,8 @@ final class SupabaseSessionStore: ObservableObject {
             session = nil
             isBlocked = false
             adminProUntil = nil
+            isAwaitingEmailConfirmation = false
+            emailConfirmationEmail = ""
             supportThreads = []
             if serverSignOutFailed {
                 statusMessage = "Du wurdest auf diesem Gerät abgemeldet. Die Abmeldung beim Server konnte nicht bestätigt werden."
@@ -219,7 +269,7 @@ final class SupabaseSessionStore: ObservableObject {
     }
 
     func refreshAccountAccess() async {
-        guard let session else { return }
+        guard session != nil else { return }
         do {
             try await refreshSessionIfNeeded()
             guard let currentSession = self.session else { return }
@@ -231,7 +281,7 @@ final class SupabaseSessionStore: ObservableObject {
             let access = try JSONDecoder().decode(AccountAccessResponse.self, from: data)
             isBlocked = false
             adminProUntil = access.hasAdminPro ? access.proUntil : nil
-        } catch SupabaseRequestError.invalidResponse(403) {
+        } catch SupabaseRequestError.invalidResponse(403, _) {
             isBlocked = true
             adminProUntil = nil
         } catch {
@@ -240,7 +290,7 @@ final class SupabaseSessionStore: ObservableObject {
     }
 
     func refreshSupportThreads() async {
-        guard let session else { return }
+        guard session != nil else { return }
         do {
             try await refreshSessionIfNeeded()
             guard let currentSession = self.session else { return }
@@ -256,7 +306,7 @@ final class SupabaseSessionStore: ObservableObject {
     }
 
     func sendSupportMessage(subject: String, body: String) async {
-        guard let session else { return }
+        guard session != nil else { return }
         statusMessage = nil
         do {
             try await refreshSessionIfNeeded()
@@ -294,7 +344,7 @@ final class SupabaseSessionStore: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200..<300).contains(httpResponse.statusCode) else {
-                throw SupabaseRequestError.invalidResponse((response as? HTTPURLResponse)?.statusCode ?? 0)
+                throw SupabaseRequestError.invalidResponse((response as? HTTPURLResponse)?.statusCode ?? 0, nil)
             }
             let rows = try JSONDecoder().decode([AppSettings].self, from: data)
             guard let settings = rows.first else {
@@ -360,9 +410,55 @@ final class SupabaseSessionStore: ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               (200..<300).contains(httpResponse.statusCode) else {
-            throw SupabaseRequestError.invalidResponse((response as? HTTPURLResponse)?.statusCode ?? 0)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let serverError = try? JSONDecoder().decode(SupabaseErrorResponse.self, from: data)
+            throw SupabaseRequestError.invalidResponse(status, serverError)
         }
         return data
+    }
+
+    private func authenticationStatusMessage(for error: Error, operation: AuthOperation) -> String {
+        guard case let SupabaseRequestError.invalidResponse(status, serverError) = error else {
+            if error is URLError {
+                return "Supabase ist gerade nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut."
+            }
+            return "Die Anfrage konnte nicht abgeschlossen werden. Prüfe die Supabase-Einrichtung und versuche es erneut."
+        }
+
+        let errorCode = serverError?.errorCode?.lowercased() ?? ""
+        let message = [
+            serverError?.message,
+            serverError?.errorDescription,
+            serverError?.msg
+        ]
+        .compactMap { $0?.lowercased() }
+        .joined(separator: " ")
+
+        if errorCode.contains("email_not_confirmed") || message.contains("email not confirmed") {
+            return "Bitte bestätige zuerst deine E-Mail-Adresse mit dem zugesendeten Code."
+        }
+        if operation == .verifyEmail,
+           errorCode.contains("otp_expired") || message.contains("expired") || message.contains("invalid token") {
+            return "Der Code ist abgelaufen oder ungültig. Fordere einen neuen Bestätigungscode an."
+        }
+        if operation == .signIn,
+           errorCode.contains("invalid_credentials") || message.contains("invalid login credentials") || status == 401 {
+            return "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort und versuche es erneut."
+        }
+        if operation == .signUp,
+           errorCode.contains("user_already_exists") || message.contains("already registered") {
+            return "Für diese E-Mail-Adresse besteht bereits ein Konto. Melde dich an oder setze dein Passwort zurück."
+        }
+        if status == 429 {
+            return "Zu viele Versuche. Warte kurz und versuche es danach erneut."
+        }
+        return "Die Anfrage ist fehlgeschlagen (Supabase HTTP \(status)). Prüfe deine Eingaben und versuche es erneut."
+    }
+
+    private func requiresEmailConfirmation(_ error: Error) -> Bool {
+        guard case let SupabaseRequestError.invalidResponse(_, serverError) = error else { return false }
+        return serverError?.errorCode?.lowercased().contains("email_not_confirmed") == true
+            || serverError?.msg?.lowercased().contains("email not confirmed") == true
     }
 
     private func storeSession(from response: AuthSessionResponse) throws {
@@ -388,6 +484,17 @@ private struct RefreshTokenRequest: Encodable {
 }
 
 private struct EmailAddress: Encodable {
+    let email: String
+}
+
+private struct VerifyEmailOTPRequest: Encodable {
+    let type: String
+    let email: String
+    let token: String
+}
+
+private struct ResendEmailOTPRequest: Encodable {
+    let type: String
     let email: String
 }
 
@@ -438,6 +545,20 @@ private struct AuthSessionResponse: Decodable {
             expiresAt: Date.now.addingTimeInterval(TimeInterval(expiresIn)),
             user: user
         )
+    }
+}
+
+private struct SupabaseErrorResponse: Decodable {
+    let errorCode: String?
+    let message: String?
+    let errorDescription: String?
+    let msg: String?
+
+    enum CodingKeys: String, CodingKey {
+        case errorCode = "error_code"
+        case message
+        case errorDescription = "error_description"
+        case msg
     }
 }
 
@@ -508,7 +629,14 @@ private enum SessionKeychainError: Error {
 
 private enum SupabaseRequestError: Error {
     case invalidConfiguration
-    case invalidResponse(Int)
+    case invalidResponse(Int, SupabaseErrorResponse?)
     case incompleteSession
     case missingSettings
+}
+
+private enum AuthOperation {
+    case signIn
+    case signUp
+    case verifyEmail
+    case resendEmail
 }

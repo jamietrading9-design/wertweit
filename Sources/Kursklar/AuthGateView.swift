@@ -4,6 +4,7 @@ struct AuthGateView: View {
     @ObservedObject var store: SupabaseSessionStore
     @State private var email = ""
     @State private var password = ""
+    @State private var emailCode = ""
     @State private var isCreatingAccount = false
     @State private var requestInProgress = false
     @State private var showDeleteAccountConfirmation = false
@@ -24,6 +25,8 @@ struct AuthGateView: View {
                 maintenanceView
             } else if store.session != nil {
                 PhoneContentView(authStore: store)
+            } else if store.isAwaitingEmailConfirmation {
+                emailConfirmationView
             } else {
                 signInView
             }
@@ -189,6 +192,7 @@ struct AuthGateView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(ink.opacity(0.5))
             }
+
             Button("Erneut prüfen") {
                 Task { await store.refreshMaintenanceStatus() }
             }
@@ -209,6 +213,81 @@ struct AuthGateView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(canvas.ignoresSafeArea())
+    }
+
+    private var emailConfirmationView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Image("WertweitLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text("E-Mail bestätigen")
+                    .font(.system(size: 29, weight: .semibold, design: .rounded))
+                    .foregroundStyle(ink)
+                Text("Gib den Bestätigungscode ein, den wir an \(store.emailConfirmationEmail) gesendet haben.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(ink.opacity(0.64))
+            }
+
+            TextField("Bestätigungscode", text: $emailCode)
+                .textContentType(.oneTimeCode)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                .textInputAutocapitalization(.never)
+                #endif
+                .padding(14)
+                .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                .onChange(of: emailCode) { value in
+                    emailCode = String(value.filter(\.isNumber).prefix(8))
+                }
+
+            Button {
+                requestInProgress = true
+                Task {
+                    await store.confirmEmail(code: emailCode)
+                    if !store.isAwaitingEmailConfirmation { emailCode = "" }
+                    requestInProgress = false
+                }
+            } label: {
+                HStack {
+                    if requestInProgress { ProgressView().tint(.white) }
+                    Text("E-Mail bestätigen")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(green, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .disabled(requestInProgress || emailCode.isEmpty)
+
+            Button("Neuen Code senden") {
+                requestInProgress = true
+                Task {
+                    await store.resendEmailConfirmation()
+                    requestInProgress = false
+                }
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(green)
+            .frame(maxWidth: .infinity)
+            .disabled(requestInProgress)
+
+            Button("Zurück zur Anmeldung") {
+                emailCode = ""
+                store.cancelEmailConfirmation()
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(ink.opacity(0.6))
+            .frame(maxWidth: .infinity)
+            .disabled(requestInProgress)
+        }
+        .padding(24)
+        .frame(maxWidth: 480, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(canvas.ignoresSafeArea())
     }
 
