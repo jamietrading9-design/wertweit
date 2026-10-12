@@ -159,7 +159,23 @@
         const { data, error } = await supabase.functions.invoke("admin-console", {
           body: { action, ...values },
         });
-        if (error) throw new Error(data?.error || error.message || "Admin-Anfrage fehlgeschlagen");
+        if (error) {
+          let message = data?.error || error.message || "Admin-Anfrage fehlgeschlagen";
+          const context = error.context;
+          if (context instanceof Response) {
+            try {
+              const responseBody = await context.clone().json();
+              const serverMessage = responseBody?.error || responseBody?.message;
+              if (typeof serverMessage === "string" && serverMessage.length > 0) {
+                message = serverMessage;
+              }
+            } catch {
+              // Keep the SDK message when the function response is not JSON.
+            }
+            if (context.status) message = `${message} (HTTP ${context.status})`;
+          }
+          throw new Error(message);
+        }
         if (data?.error) throw new Error(data.error);
         return data;
       }
