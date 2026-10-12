@@ -60,6 +60,10 @@
     .support-ticket-state { display: inline-block; width: fit-content; border-radius: 999px; padding: 3px 8px; background: #e7f0e9; color: var(--leaf); font-size: 10px; font-weight: 700; }
     .support-ticket-state.closed { background: #eef0ed; color: var(--muted); }
     .support-ticket-state.in-progress { background: #fff3d9; color: #765313; }
+    .support-ticket-priority { display: inline-block; width: fit-content; border-radius: 999px; padding: 4px 9px; font-size: 10px; font-weight: 700; }
+    .support-ticket-priority.red { background: #fde8e5; color: #a12c22; }
+    .support-ticket-priority.yellow { background: #fff3d9; color: #765313; }
+    .support-ticket-priority.green { background: #e7f0e9; color: var(--leaf); }
     .support-ticket-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .support-ticket-actions button, .support-reply button { min-height: 36px; font-size: 12px; }
     .support-reply[hidden] { display: none; }
@@ -124,7 +128,8 @@
       <section class="card" aria-labelledby="maintenance-title">
         <div class="card-heading"><h2 id="maintenance-title">Wartungsmodus</h2><span id="maintenance-state" class="status"></span></div>
         <label class="setting"><input id="maintenance-enabled" type="checkbox"> App für Nutzer online sperren</label>
-        <label>Nachricht in der App<textarea id="maintenance-message" maxlength="500" required></textarea></label>
+        <label>Hinweis für App und Wartungs-E-Mail<textarea id="maintenance-message" maxlength="500" required></textarea></label>
+        <p class="notice">Bei jedem Wechsel des Wartungsmodus erhältst du eine E-Mail. Nutzer mit aktivierter E-Mail-Einwilligung bekommen dieselbe Service-Mitteilung. Der kostenlose Gmail-Versand ist auf 99 Nutzer pro Wartungswechsel begrenzt.</p>
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
       </section>
@@ -465,6 +470,9 @@
             title.className = "support-ticket-title";
             const subject = document.createElement("strong");
             subject.textContent = thread.subject;
+            const priority = document.createElement("span");
+            priority.className = `support-ticket-priority ${thread.support_priority}`;
+            priority.textContent = `${thread.priorityEmoji} ${thread.priorityLabel} · ${thread.categoryLabel}`;
             const meta = document.createElement("span");
             meta.className = "support-ticket-meta";
             const isClaimedByMe = thread.claimed_by === currentAdmin.id;
@@ -474,7 +482,7 @@
             preview.textContent = thread.messages.length
               ? thread.messages[thread.messages.length - 1].body
               : "Noch keine Nachricht";
-            title.append(subject, meta, preview);
+            title.append(subject, priority, meta, preview);
             const state = document.createElement("span");
             state.className = `support-ticket-state${thread.status === "closed" ? " closed" : thread.status === "in_progress" ? " in-progress" : ""}`;
             state.textContent = thread.status === "closed" ? "Geschlossen" : thread.status === "in_progress" ? "In Bearbeitung" : "Offen";
@@ -619,12 +627,25 @@
         setBusy(button, true);
         setStatus(maintenanceStatus, "Einstellung wird gespeichert …");
         try {
-          const { settings } = await callAdmin("update-maintenance", {
+          const { settings, maintenanceEmail } = await callAdmin("update-maintenance", {
             enabled: document.querySelector("#maintenance-enabled").checked,
             message: document.querySelector("#maintenance-message").value,
           });
           document.querySelector("#maintenance-state").textContent = settings.maintenance_enabled ? "App ist gesperrt" : "App ist aktiv";
-          setStatus(maintenanceStatus, "Wartungseinstellung gespeichert.", "success");
+          if (!maintenanceEmail?.changed) {
+            setStatus(maintenanceStatus, "Wartungseinstellung gespeichert. Der Status hat sich nicht geändert; es wurde keine E-Mail versendet.", "success");
+          } else if (maintenanceEmail.error) {
+            setStatus(maintenanceStatus, `Wartungseinstellung gespeichert, aber die E-Mail konnte nicht vollständig versendet werden: ${maintenanceEmail.error}`, "error");
+          } else {
+            const omitted = maintenanceEmail.usersSkipped
+              ? ` ${maintenanceEmail.usersSkipped} Nutzer wurden wegen Bestätigung oder Gmail-Limit ausgelassen.`
+              : "";
+            setStatus(
+              maintenanceStatus,
+              `Wartungseinstellung gespeichert. E-Mail an dich und ${maintenanceEmail.usersNotified} Nutzer gesendet.${omitted}`,
+              "success",
+            );
+          }
         } catch (error) {
           setStatus(maintenanceStatus, error.message, "error");
         } finally {

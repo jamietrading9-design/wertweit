@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAPNS } from "../_shared/apns.ts";
 import { sendViaGmail } from "../_shared/gmail.ts";
+import {
+  supportCategoryLabel,
+  supportPriorityEmoji,
+  supportPriorityLabel,
+} from "../_shared/support-classifier.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -419,7 +424,7 @@ Deno.serve(async (request) => {
     }
     let threadQuery = supabase
       .from("support_threads")
-      .select("id, user_id, user_email, subject, status, created_at, updated_at, claimed_by, claimed_at")
+      .select("id, user_id, user_email, subject, support_category, support_priority, status, created_at, updated_at, claimed_by, claimed_at")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (filter === "open") threadQuery = threadQuery.eq("status", "open");
@@ -458,6 +463,9 @@ Deno.serve(async (request) => {
         ...thread,
         email: thread.user_email || "Keine E-Mail",
         claimedEmail: thread.claimed_by ? claimedEmailByUser.get(thread.claimed_by) ?? "Admin" : null,
+        categoryLabel: supportCategoryLabel(thread.support_category),
+        priorityLabel: supportPriorityLabel(thread.support_priority),
+        priorityEmoji: supportPriorityEmoji(thread.support_priority),
         messages: (messages ?? []).filter((message) => message.thread_id === thread.id),
       })),
     });
@@ -649,6 +657,16 @@ Deno.serve(async (request) => {
       return respond({ error: "The maintenance message must be 1–500 characters" }, 400);
     }
 
+    const { data: currentSettings, error: currentSettingsError } = await supabase
+      .from("app_settings")
+      .select("maintenance_enabled")
+      .eq("id", 1)
+      .single();
+    if (currentSettingsError) {
+      console.error("Could not load previous maintenance settings", currentSettingsError.message);
+      return respond({ error: "Maintenance settings could not be loaded" }, 502);
+    }
+
     const { data, error } = await supabase
       .from("app_settings")
       .update({
@@ -665,7 +683,72 @@ Deno.serve(async (request) => {
       console.error("Could not update maintenance settings", error.message);
       return respond({ error: "Maintenance settings could not be saved" }, 502);
     }
-    return respond({ settings: data });
+
+    let maintenanceEmail = {
+      changed: currentSettings.maintenance_enabled !== data.maintenance_enabled,
+      adminNotified: false,
+      usersNotified: 0,
+      usersSkipped: 0,
+      error: "",
+    };
+    if (maintenanceEmail.changed) {
+      try {
+        const { count, error: countError } = await supabase
+          .from("email_update_preferences")
+          .select("user_id", { count: "exact", head: true })
+          .eq("subscribed", true);
+        if (countError) throw new Error(`Could not count email subscribers: ${countError.message}`);
+
+        const { data: preferences, error: preferencesError } = await supabase
+          .from("email_update_preferences")
+          .select("user_id")
+          .eq("subscribed", true)
+          .order("user_id", { ascending: true })
+          .limit(99);
+        if (preferencesError) throw new Error(`Could not load email subscribers: ${preferencesError.message}`);
+
+        const subscriberResults = await Promise.all(
+          (preferences ?? []).map(({ user_id }) => supabase.auth.admin.getUserById(user_id)),
+        );
+        const failedLookup = subscriberResults.find(({ error: lookupError }) => lookupError);
+        if (failedLookup?.error) {
+          throw new Error(`Could not load a subscriber account: ${failedLookup.error.message}`);
+        }
+        const recipients = [...new Set(subscriberResults.flatMap(({ data: userData }) =>
+          userData.user?.email_confirmed_at && userData.user.email
+            ? [userData.user.email]
+            : []
+        ))].filter((email) => email.toLowerCase() !== "wertweitoffiziell@gmail.com");
+        const maintenanceSubject = data.maintenance_enabled
+          ? "Wertweit wird gewartet"
+          : "Wertweit ist wieder verfügbar";
+        const maintenanceBody = data.maintenance_enabled
+          ? `Wertweit wird gerade gewartet. Bitte versuche es später erneut.\n\n${data.maintenance_message}`
+          : `Die Wartung ist beendet. Wertweit ist wieder verfügbar.\n\n${data.maintenance_message}`;
+        const deliveryRecipients = recipients.length > 0
+          ? recipients
+          : ["wertweitoffiziell@gmail.com"];
+        const delivery = await sendViaGmail(deliveryRecipients, maintenanceSubject, maintenanceBody);
+        maintenanceEmail = {
+          changed: true,
+          adminNotified: delivery.sent > 0 && delivery.failed.length === 0,
+          usersNotified: delivery.failed.length === 0 ? Math.min(delivery.sent, recipients.length) : 0,
+          usersSkipped: Math.max(0, (count ?? 0) - recipients.length),
+          error: delivery.failed.length > 0
+            ? delivery.failed.map((failure) => `${failure.email}: ${failure.error}`).join("; ")
+            : (count ?? 0) > 99
+            ? `Only 99 opted-in users can receive this free Gmail batch; ${count! - 99} were not emailed.`
+            : "",
+        };
+      } catch (emailError) {
+        maintenanceEmail = {
+          ...maintenanceEmail,
+          error: emailError instanceof Error ? emailError.message : "Maintenance email could not be sent.",
+        };
+        console.error("Maintenance setting saved but notification email failed", maintenanceEmail.error);
+      }
+    }
+    return respond({ settings: data, maintenanceEmail });
   }
 
   if (payload.action === "update-pro-offer") {

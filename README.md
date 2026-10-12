@@ -88,7 +88,7 @@ Das im Supabase-Dashboard angebotene MCP-Kommando `claude mcp add ...` ist nur f
 
 Admin-E-Mails erzeugen zusätzlich einen Eintrag in der Benachrichtigungs-Inbox der betroffenen Konten. Für echte Mitteilungen, wenn die iPhone-App geschlossen ist, braucht jedes Gerät eine Push-Berechtigung und der Server einen Apple-APNs-Schlüssel:
 
-1. Im Apple Developer Account Push Notifications für die Bundle-ID `de.wertweit.app` aktivieren und einen APNs Auth Key erstellen. Key-ID, Team-ID und die `.p8`-Datei sicher aufbewahren.
+1. Eine aktive Mitgliedschaft im kostenpflichtigen Apple Developer Program verwenden. Ein kostenloses Personal-Team unterstützt die Push Notifications Capability nicht. Anschließend Push Notifications für die Bundle-ID `de.wertweit.app` aktivieren und einen APNs Auth Key erstellen. Key-ID, Team-ID und die `.p8`-Datei sicher aufbewahren.
 2. APNs-Key ausschließlich als Supabase-Function-Secret setzen, nicht in Xcode, Git oder die Website. Dafür lokal eine nicht eingecheckte Env-Datei mit `APPLE_TEAM_ID`, `APPLE_APNS_KEY_ID`, `APPLE_APNS_PRIVATE_KEY`, `APPLE_APNS_TOPIC=de.wertweit.app` und `APPLE_APNS_ENVIRONMENT` anlegen. Für Debug-Builds ist die APNs-Umgebung `sandbox`, für App-Store-Builds `production`.
 3. Secrets setzen: `npx supabase secrets set --project-ref jxewtyipeymxbjbckrrl --env-file <private-env-datei>`.
 4. Die App mit aktivierter Push-Entitlement signieren und verteilen. Nutzer müssen Push im App-Menü erlauben. Erst danach meldet das Gerät sein APNs-Token bei Supabase an.
@@ -97,7 +97,9 @@ Bis Apple-Key, Push-Capability und ein entsprechend signierter App-Build eingeri
 
 ## Web-App
 
-Die responsive, installierbare Browser-App liegt unter `website/waehrungsrechner-app-web/` und wird zusammen mit der übrigen Website unter `/waehrungsrechner-app-web/` veröffentlicht. Sie verwendet dasselbe Supabase-Login, den öffentlichen Referenzkursdienst und die Web-Portal-Functions. Die Web-App bietet Rechner, Reise, Wechselwerkzeuge, Kursübersicht, Inbox, E-Mail-Einstellungen und Support. Web-Käufe und die Synchronisierung von Apple-App-Store-Abos sind noch nicht eingerichtet; im Web wird nur ein vom Server gewährter Pro-Zugang erkannt.
+Die responsive, installierbare Browser-App liegt unter `website/waehrungsrechner-app-web/` und wird zusammen mit der übrigen Website unter `/waehrungsrechner-app-web/` veröffentlicht. Anmeldung und Passwort nutzen dasselbe Supabase-Konto wie die iOS-App; beide Clients bestätigen neue Konten mit einem E-Mail-Code. Dafür muss Supabase Auth den `{{ .Token }}` in der Bestätigungsvorlage versenden und ein funktionierender SMTP-Versand eingerichtet sein. Der separate Gmail-Versand der Admin-Seite richtet Supabase Auth SMTP nicht ein. Die Web-App bietet Rechner, Reise, Wechselwerkzeuge, Kursübersicht, Inbox, E-Mail-Einstellungen und Support. Web-Käufe und die Synchronisierung von Apple-App-Store-Abos sind noch nicht eingerichtet; im Web wird nur ein vom Server gewährter Pro-Zugang erkannt.
+
+Neue Support-Tickets werden serverseitig mit lokalen, regelbasierten Schlüsselworten einer Kategorie und einer Dringlichkeit zugeordnet; es wird dafür kein KI-Anbieter oder externer API-Aufruf verwendet. Rot kennzeichnet Sicherheits-, Datenverlust- und vergleichbare dringende Meldungen, Gelb Probleme mit App, Konto oder Zahlung und Grün allgemeine Fragen oder Wünsche. Die Einstufung steht im Admin-Postfach und im Betreff der Support-E-Mail. Beim Ein- und Ausschalten des Wartungsmodus wird eine Service-E-Mail an das Admin-Postfach und an bestätigte Konten mit aktiver E-Mail-Einwilligung gesendet. Wegen des kostenlosen Gmail-Kontingents werden höchstens 99 Nutzer pro Wartungswechsel per E-Mail erreicht; die Admin-Seite weist auf ausgelassene Empfänger hin.
 
 ## GitHub
 

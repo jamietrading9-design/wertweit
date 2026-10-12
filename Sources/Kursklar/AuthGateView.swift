@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AuthGateView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var store: SupabaseSessionStore
     @State private var email = ""
     @State private var password = ""
@@ -39,6 +40,10 @@ struct AuthGateView: View {
                 await store.refreshMaintenanceStatus()
                 await store.refreshAccountAccess()
             }
+        }
+        .onChange(of: scenePhase) { phase in
+            guard phase == .active else { return }
+            Task { await store.refreshMaintenanceStatus() }
         }
         .confirmationDialog(
             "Wertweit-Konto löschen?",
@@ -278,6 +283,7 @@ struct AuthGateView: View {
 
             Button("Zurück zur Anmeldung") {
                 emailCode = ""
+                isCreatingAccount = false
                 store.cancelEmailConfirmation()
             }
             .font(.system(size: 13, weight: .medium))

@@ -15,30 +15,40 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <main id="auth-screen" class="auth-screen">
+  <main id="auth-screen" class="auth-screen" hidden>
     <section class="auth-card">
-      <a class="brand" href="../index.html">
-        <img src="../assets/wertweit-logo.png" alt="">
-        <span>Wertweit<small>WÄHRUNGSRECHNER</small></span>
-      </a>
-      <p class="eyebrow">WILLKOMMEN</p>
-      <h1>Geld kennt<br>keine Grenzen.</h1>
-      <p class="muted">Melde dich mit deinem Wertweit-Konto an oder erstelle ein kostenloses Konto.</p>
+      <img class="auth-logo" src="../assets/wertweit-logo.png" alt="Wertweit">
+      <h1 id="auth-title">Willkommen zurück</h1>
+      <p id="auth-description" class="muted">Melde dich mit deinem Wertweit-Konto an, um die App zu nutzen.</p>
       <form id="auth-form">
-        <label for="auth-email">E-Mail-Adresse</label>
-        <input id="auth-email" type="email" autocomplete="email" required>
-        <label for="auth-password">Passwort</label>
-        <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required>
-        <label id="otp-label" for="auth-otp" hidden>E-Mail-Code</label>
-        <input id="auth-otp" inputmode="numeric" autocomplete="one-time-code" hidden>
+        <div id="auth-credentials" class="auth-fields">
+          <label class="visually-hidden" for="auth-email">E-Mail-Adresse</label>
+          <input id="auth-email" type="email" autocomplete="email" placeholder="E-Mail-Adresse" required>
+          <label class="visually-hidden" for="auth-password">Passwort (mindestens 8 Zeichen)</label>
+          <input id="auth-password" type="password" autocomplete="current-password" placeholder="Passwort (mindestens 8 Zeichen)" required>
+        </div>
+        <div id="auth-otp-fields" class="auth-fields" hidden>
+          <label class="visually-hidden" for="auth-otp">Bestätigungscode</label>
+          <input id="auth-otp" inputmode="numeric" autocomplete="one-time-code" placeholder="Bestätigungscode" maxlength="8" pattern="[0-9]{6,8}">
+          <button id="auth-resend" class="text-button" type="button">Neuen Code senden</button>
+          <button id="auth-cancel" class="text-button" type="button">Zurück zur Anmeldung</button>
+        </div>
         <p id="auth-message" class="status" role="status" aria-live="polite"></p>
         <button id="auth-submit" class="button primary" type="submit">Anmelden</button>
       </form>
-      <div class="auth-actions">
+      <div id="auth-actions" class="auth-actions">
         <button id="auth-mode" class="text-button" type="button">Neues Konto erstellen</button>
         <button id="reset-password" class="text-button" type="button">Passwort vergessen?</button>
       </div>
-      <a class="back-link" href="../index.html">← Zur Wertweit-Webseite</a>
+    </section>
+  </main>
+
+  <main id="maintenance-screen" class="auth-screen" hidden>
+    <section class="auth-card">
+      <img class="auth-logo" src="../assets/wertweit-logo.png" alt="Wertweit">
+      <h1 id="maintenance-title">Kurz in Wartung</h1>
+      <p id="maintenance-message" class="muted">Wertweit wird gerade gewartet. Bitte versuche es später erneut.</p>
+      <button id="maintenance-refresh" class="button primary" type="button">Erneut prüfen</button>
     </section>
   </main>
 

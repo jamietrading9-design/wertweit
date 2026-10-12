@@ -19,6 +19,11 @@ const state = {
   supportThreads: [],
   historyDays: 7,
   phraseResult: "",
+  maintenanceEnabled: false,
+  maintenanceMessage: "",
+  initializing: false,
+  maintenanceTimer: null,
+  appRefreshTimer: null,
 };
 const destinations = [
   { country: "Japan", flag: "🇯🇵", currency: "JPY", meal: 900, coffee: 500, transport: 1800, budget: "40–60 €", moderate: "80–130 €", comfort: "ab 150 €", tipping: "Trinkgeld ist in Japan normalerweise nicht üblich." },
@@ -32,6 +37,88 @@ const destinations = [
 function setStatus(element, message, type = "") {
   element.textContent = message;
   element.className = `status ${type}`;
+}
+
+function authErrorMessage(error, operation) {
+  const message = String(error?.message ?? "").toLowerCase();
+  const code = String(error?.code ?? "").toLowerCase();
+  if (/failed to fetch|network request failed|load failed/.test(message)) {
+    return "Supabase ist gerade nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.";
+  }
+  if (code.includes("email_not_confirmed") || message.includes("email not confirmed")) {
+    return "Bitte bestätige zuerst deine E-Mail-Adresse mit dem zugesendeten Code.";
+  }
+  if (operation === "verify" &&
+      (code.includes("otp_expired") || message.includes("expired") || message.includes("invalid token"))) {
+    return "Der Code ist abgelaufen oder ungültig. Fordere einen neuen Bestätigungscode an.";
+  }
+  if (operation === "signin" &&
+      (code.includes("invalid_credentials") || message.includes("invalid login credentials") || error?.status === 401)) {
+    return "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort und versuche es erneut.";
+  }
+  if (operation === "signup" &&
+      (code.includes("user_already_exists") || message.includes("already registered"))) {
+    return "Für diese E-Mail-Adresse besteht bereits ein Konto. Melde dich an oder setze dein Passwort zurück.";
+  }
+  if (error?.status === 429) {
+    return "Zu viele Versuche. Warte kurz und versuche es danach erneut.";
+  }
+  return error?.message || "Die Anfrage ist fehlgeschlagen. Prüfe deine Eingaben und versuche es erneut.";
+}
+
+async function readMaintenanceSettings() {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("maintenance_enabled, maintenance_message")
+    .eq("id", 1)
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Der Wartungsstatus konnte nicht geladen werden.");
+  }
+  return data;
+}
+
+function showMaintenance(settings, unavailable = false) {
+  state.maintenanceEnabled = true;
+  state.maintenanceMessage = settings.maintenance_message ||
+    (unavailable
+      ? "Der Wartungsstatus konnte nicht geprüft werden. Bitte versuche es später erneut."
+      : "Wertweit wird gerade gewartet. Bitte versuche es später erneut.");
+  state.initialized = false;
+  if (state.appRefreshTimer !== null) {
+    clearInterval(state.appRefreshTimer);
+    state.appRefreshTimer = null;
+  }
+  $("#auth-screen").hidden = true;
+  $("#app-shell").hidden = true;
+  $("#maintenance-screen").hidden = false;
+  $("#maintenance-title").textContent = unavailable ? "Verbindung fehlgeschlagen" : "Kurz in Wartung";
+  $("#maintenance-message").textContent = state.maintenanceMessage;
+}
+
+async function pollMaintenanceStatus() {
+  try {
+    const settings = await readMaintenanceSettings();
+    if (settings.maintenance_enabled) {
+      showMaintenance(settings);
+      return;
+    }
+    if (!state.maintenanceEnabled) return;
+
+    state.maintenanceEnabled = false;
+    $("#maintenance-screen").hidden = true;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await initializeApp(session.user);
+    } else {
+      $("#auth-screen").hidden = false;
+    }
+  } catch (error) {
+    if (!state.maintenanceEnabled) {
+      showMaintenance({}, true);
+    }
+    console.error("Could not refresh maintenance status", error);
+  }
 }
 
 function parseAmount(value) {
@@ -354,28 +441,47 @@ function fillCurrencySelectors() {
 }
 
 async function initializeApp(user) {
-  if (state.initialized) return;
-  state.initialized = true;
-  $("#auth-screen").hidden = true;
-  $("#app-shell").hidden = false;
-  $("#account-email").textContent = user.email ?? "";
-  await Promise.all([loadAccess(), loadNotifications(), loadEmailPreference()]);
+  if (state.initialized || state.initializing) return;
+  state.initializing = true;
   try {
-    const response = await fetch("https://api.frankfurter.app/currencies");
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    state.currencies = await response.json();
-    fillCurrencySelectors();
-    populateDestination();
-    await loadCurrentRate();
-    renderHistory();
-    setInterval(() => {
-      if (document.visibilityState === "visible") {
-        loadCurrentRate();
-        loadNotifications();
-      }
-    }, 5 * 60 * 1000);
-  } catch (error) {
-    setStatus($("#app-status"), `Die Währungsliste konnte nicht geladen werden: ${error.message}`);
+    let settings;
+    try {
+      settings = await readMaintenanceSettings();
+    } catch (error) {
+      showMaintenance({}, true);
+      console.error("Could not load maintenance settings", error);
+      return;
+    }
+    state.maintenanceEnabled = settings.maintenance_enabled === true;
+    if (state.maintenanceEnabled) {
+      showMaintenance(settings);
+      return;
+    }
+    $("#maintenance-screen").hidden = true;
+    state.initialized = true;
+    $("#auth-screen").hidden = true;
+    $("#app-shell").hidden = false;
+    $("#account-email").textContent = user.email ?? "";
+    await Promise.all([loadAccess(), loadNotifications(), loadEmailPreference()]);
+    try {
+      const response = await fetch("https://api.frankfurter.app/currencies");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      state.currencies = await response.json();
+      fillCurrencySelectors();
+      populateDestination();
+      await loadCurrentRate();
+      renderHistory();
+      state.appRefreshTimer = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          loadCurrentRate();
+          loadNotifications();
+        }
+      }, 5 * 60 * 1000);
+    } catch (error) {
+      setStatus($("#app-status"), `Die Währungsliste konnte nicht geladen werden: ${error.message}`);
+    }
+  } finally {
+    state.initializing = false;
   }
 }
 
@@ -485,14 +591,64 @@ $("#sign-out").addEventListener("click", async () => {
   }
   location.reload();
 });
+$("#maintenance-refresh").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    await pollMaintenanceStatus();
+  } finally {
+    button.disabled = false;
+  }
+});
 
 let authMode = "signin";
 let awaitingOTP = false;
+let pendingConfirmationEmail = "";
+
+function updateAuthMode() {
+  $("#auth-title").textContent = authMode === "signin" ? "Willkommen zurück" : "Konto erstellen";
+  $("#auth-description").textContent = "Melde dich mit deinem Wertweit-Konto an, um die App zu nutzen.";
+  $("#auth-submit").textContent = authMode === "signin" ? "Anmelden" : "Konto erstellen";
+  $("#auth-mode").textContent = authMode === "signin" ? "Neues Konto erstellen" : "Ich habe schon ein Konto";
+  $("#reset-password").hidden = authMode !== "signin";
+  $("#auth-password").autocomplete = authMode === "signin" ? "current-password" : "new-password";
+}
+
+function showConfirmation(email) {
+  awaitingOTP = true;
+  pendingConfirmationEmail = email;
+  $("#auth-title").textContent = "E-Mail bestätigen";
+  $("#auth-description").textContent = `Gib den Bestätigungscode ein, den wir an ${email} gesendet haben.`;
+  $("#auth-credentials").hidden = true;
+  $("#auth-email").required = false;
+  $("#auth-password").required = false;
+  $("#auth-otp-fields").hidden = false;
+  $("#auth-otp").required = true;
+  $("#auth-actions").hidden = true;
+  $("#auth-submit").textContent = "E-Mail bestätigen";
+  $("#auth-message").textContent = "";
+  $("#auth-otp").focus();
+}
+
+function showCredentials() {
+  awaitingOTP = false;
+  pendingConfirmationEmail = "";
+  $("#auth-title").textContent = "Willkommen zurück";
+  $("#auth-description").textContent = "Melde dich mit deinem Wertweit-Konto an, um die App zu nutzen.";
+  $("#auth-credentials").hidden = false;
+  $("#auth-email").required = true;
+  $("#auth-password").required = true;
+  $("#auth-otp-fields").hidden = true;
+  $("#auth-otp").required = false;
+  $("#auth-otp").value = "";
+  $("#auth-actions").hidden = false;
+  authMode = "signin";
+  updateAuthMode();
+}
+
 $("#auth-mode").addEventListener("click", () => {
   authMode = authMode === "signin" ? "signup" : "signin";
-  $("#auth-submit").textContent = authMode === "signin" ? "Anmelden" : "Konto erstellen";
-  $("#auth-mode").textContent = authMode === "signin" ? "Neues Konto erstellen" : "Schon ein Konto? Anmelden";
-  $("#auth-password").autocomplete = authMode === "signin" ? "current-password" : "new-password";
+  updateAuthMode();
 });
 $("#reset-password").addEventListener("click", async () => {
   const email = $("#auth-email").value.trim();
@@ -503,6 +659,29 @@ $("#reset-password").addEventListener("click", async () => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.href });
   setStatus($("#auth-message"), error?.message ?? "Falls das Konto existiert, wurde ein Link zum Zurücksetzen angefordert.", error ? "" : "success");
 });
+$("#auth-otp").addEventListener("input", (event) => {
+  event.target.value = event.target.value.replace(/\D/g, "").slice(0, 8);
+});
+$("#auth-resend").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: pendingConfirmationEmail,
+    });
+    if (error) throw error;
+    setStatus($("#auth-message"), "Wenn die Adresse noch nicht bestätigt ist, wurde ein neuer Code gesendet.", "success");
+  } catch (error) {
+    setStatus($("#auth-message"), authErrorMessage(error, "resend"));
+  } finally {
+    button.disabled = false;
+  }
+});
+$("#auth-cancel").addEventListener("click", () => {
+  showCredentials();
+  setStatus($("#auth-message"), "");
+});
 $("#auth-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = $("#auth-email").value.trim();
@@ -510,48 +689,76 @@ $("#auth-form").addEventListener("submit", async (event) => {
   const button = $("#auth-submit");
   button.disabled = true;
   setStatus($("#auth-message"), "");
+  let authOperation = awaitingOTP ? "verify" : authMode;
   try {
     if (awaitingOTP) {
       const { data, error } = await supabase.auth.verifyOtp({
-        email,
+        email: pendingConfirmationEmail,
         token: $("#auth-otp").value.trim(),
         type: "signup",
       });
       if (error) throw error;
       if (!data.user) throw new Error("Die E-Mail konnte nicht bestätigt werden. Fordere einen neuen Code an.");
       awaitingOTP = false;
+      pendingConfirmationEmail = "";
       await initializeApp(data.user);
       return;
     }
+    if (authMode === "signup" && password.length < 8) {
+      throw new Error("Das Passwort muss mindestens 8 Zeichen lang sein.");
+    }
     if (authMode === "signup") {
+      authOperation = "signup";
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
       if (data.session && data.user) {
         await initializeApp(data.user);
         return;
       }
-      awaitingOTP = true;
-      $("#otp-label").hidden = false;
-      $("#auth-otp").hidden = false;
-      $("#auth-otp").required = true;
-      setStatus($("#auth-message"), "Gib den Bestätigungscode aus deiner E-Mail ein.", "success");
+      showConfirmation(email);
+      setStatus($("#auth-message"), "Wir haben einen Bestätigungscode an deine E-Mail-Adresse gesendet.", "success");
       return;
     }
+    authOperation = "signin";
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      if (error.code === "email_not_confirmed" || /email not confirmed/i.test(error.message)) {
+        showConfirmation(email);
+        setStatus($("#auth-message"), "Bitte bestätige zuerst deine E-Mail-Adresse mit dem zugesendeten Code.");
+        return;
+      }
+      throw error;
+    }
     await initializeApp(data.user);
   } catch (error) {
-    setStatus($("#auth-message"), error.message || "Die Anmeldung ist fehlgeschlagen.");
+    setStatus($("#auth-message"), authErrorMessage(error, authOperation));
   } finally {
     button.disabled = false;
   }
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {
-  if (session?.user && $("#app-shell").hidden) void initializeApp(session.user);
+  if (session?.user && $("#app-shell").hidden && !state.maintenanceEnabled) {
+    void initializeApp(session.user).catch((error) => {
+      setStatus($("#auth-message"), error.message || "Die Anmeldung konnte nicht abgeschlossen werden.");
+    });
+  }
 });
-const { data: { session } } = await supabase.auth.getSession();
-if (session?.user) await initializeApp(session.user);
+try {
+  const settings = await readMaintenanceSettings();
+  state.maintenanceEnabled = settings.maintenance_enabled === true;
+  if (state.maintenanceEnabled) {
+    showMaintenance(settings);
+  } else {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) await initializeApp(session.user);
+    else $("#auth-screen").hidden = false;
+  }
+} catch (error) {
+  showMaintenance({}, true);
+  console.error("Could not load initial maintenance settings", error);
+}
+state.maintenanceTimer = setInterval(() => void pollMaintenanceStatus(), 60 * 1000);
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch((error) => {

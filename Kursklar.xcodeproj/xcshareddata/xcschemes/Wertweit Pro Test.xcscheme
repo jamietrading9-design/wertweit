@@ -14,13 +14,13 @@
       <BuildableProductRunnable runnableDebuggingMode="0">
          <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A40000000000000000000001" BuildableName="Kursklar.app" BlueprintName="Kursklar" ReferencedContainer="container:Kursklar.xcodeproj"/>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference identifier="../../../WertweitPro.storekit"/>
+      <StoreKitConfigurationFileReference identifier="container:WertweitPro.storekit"/>
    </LaunchAction>
    <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
       <BuildableProductRunnable runnableDebuggingMode="0">
          <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A40000000000000000000001" BuildableName="Kursklar.app" BlueprintName="Kursklar" ReferencedContainer="container:Kursklar.xcodeproj"/>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference identifier="../../../WertweitPro.storekit"/>
+      <StoreKitConfigurationFileReference identifier="container:WertweitPro.storekit"/>
    </ProfileAction>
    <AnalyzeAction buildConfiguration="Debug"/>
    <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>

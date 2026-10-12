@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendViaGmail } from "../_shared/gmail.ts";
+import {
+  classifySupport,
+  supportCategoryLabel,
+  supportPriorityEmoji,
+  supportPriorityLabel,
+} from "../_shared/support-classifier.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -225,11 +231,18 @@ Deno.serve(async (request) => {
     if (subject.length < 1 || subject.length > 120 || body.length < 1 || body.length > 5000) {
       return respond({ error: "The subject or message has an invalid length" }, 400);
     }
+    const classification = classifySupport(subject, body);
 
     const { data: thread, error: threadError } = await supabase
       .from("support_threads")
-      .insert({ user_id: userId, user_email: authData.user.email ?? "", subject })
-      .select("id, subject, status, created_at, updated_at")
+      .insert({
+        user_id: userId,
+        user_email: authData.user.email ?? "",
+        subject,
+        support_category: classification.category,
+        support_priority: classification.priority,
+      })
+      .select("id, subject, support_category, support_priority, status, created_at, updated_at")
       .single();
     if (threadError) {
       console.error("Could not create support thread", threadError.message);
@@ -249,8 +262,8 @@ Deno.serve(async (request) => {
     try {
       const notification = await sendViaGmail(
         ["wertweitoffiziell@gmail.com"],
-        `Neue Support-Anfrage in Wertweit: ${subject.replace(/[\r\n]/g, " ").slice(0, 100)}`,
-        `Neue Support-Anfrage von ${authData.user.email ?? "unbekannter E-Mail-Adresse"}:\n\nBetreff: ${subject}\n\n${body}`,
+        `${supportPriorityEmoji(classification.priority)} ${supportPriorityLabel(classification.priority)} · ${supportCategoryLabel(classification.category)} · ${subject.replace(/[\r\n]/g, " ").slice(0, 80)}`,
+        `Neue Support-Anfrage von ${authData.user.email ?? "unbekannter E-Mail-Adresse"}:\n\nPriorität: ${supportPriorityLabel(classification.priority)}\nKategorie: ${supportCategoryLabel(classification.category)}\nBetreff: ${subject}\n\n${body}`,
       );
       adminNotified = notification.sent === 1 && notification.failed.length === 0;
       if (!adminNotified) {
