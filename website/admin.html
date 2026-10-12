@@ -47,8 +47,18 @@
     .pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; font-size: 12px; }
     .user-actions { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(3, auto); gap: 7px; min-width: 420px; }
     .user-actions button, .user-actions input { min-height: 36px; padding: 0 9px; font-size: 11px; }
-    .support-thread { padding: 16px 0; border-top: 1px solid var(--line); }
+    .support-thread { padding: 8px 0; border-top: 1px solid var(--line); }
     .support-thread:first-child { border-top: 0; }
+    .support-ticket summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; cursor: pointer; list-style: none; }
+    .support-ticket summary::-webkit-details-marker { display: none; }
+    .support-ticket summary::after { content: "Ticket öffnen"; flex: none; color: var(--green); font-size: 11px; font-weight: 700; }
+    .support-ticket[open] summary::after { content: "Ticket schließen"; }
+    .support-ticket-title { display: grid; gap: 4px; min-width: 0; }
+    .support-ticket-title strong { overflow-wrap: anywhere; }
+    .support-ticket-meta, .support-ticket-preview { color: var(--muted); font-size: 11px; font-weight: 400; }
+    .support-ticket-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .support-ticket-state { display: inline-block; width: fit-content; border-radius: 999px; padding: 3px 8px; background: #e7f0e9; color: var(--green); font-size: 10px; font-weight: 700; }
+    .support-ticket-state.closed { background: #eef0ed; color: var(--muted); }
     .support-message { margin: 10px 0; padding: 10px 12px; background: var(--paper); font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
     .support-message.admin { margin-left: 24px; background: #e7f0e9; }
     .support-reply { display: grid; gap: 8px; margin: 12px 0 0 24px; }
@@ -133,6 +143,7 @@
     const perPage = 25;
     let page = 1;
     let total = 0;
+    let activeSupportThreadId = null;
 
     function setStatus(element, message, kind = "") {
       element.textContent = message;
@@ -147,6 +158,11 @@
 
     function setBusy(button, busy) {
       button.disabled = busy;
+    }
+
+    function isNetworkFailure(error) {
+      const message = String(error?.message ?? "").toLowerCase();
+      return /load failed|failed to fetch|networkerror|network request failed/.test(message);
     }
 
     if (!config?.url || !config?.publishableKey || config.publishableKey.startsWith("REPLACE_")) {
@@ -321,14 +337,37 @@
           for (const thread of threads) {
             const section = document.createElement("article");
             section.className = "support-thread";
-            const heading = document.createElement("strong");
-            heading.textContent = `${thread.subject} · ${thread.email} · ${formatDate(thread.updated_at)}`;
-            section.append(heading);
+            const ticket = document.createElement("details");
+            ticket.className = "support-ticket";
+            const summary = document.createElement("summary");
+            const title = document.createElement("span");
+            title.className = "support-ticket-title";
+            const subject = document.createElement("strong");
+            subject.textContent = thread.subject;
+            const meta = document.createElement("span");
+            meta.className = "support-ticket-meta";
+            meta.textContent = `${thread.email} · zuletzt ${formatDate(thread.updated_at)}`;
+            const preview = document.createElement("span");
+            preview.className = "support-ticket-preview";
+            preview.textContent = thread.messages.length
+              ? thread.messages[thread.messages.length - 1].body
+              : "Noch keine Nachricht";
+            title.append(subject, meta, preview);
+            const state = document.createElement("span");
+            state.className = `support-ticket-state${thread.status === "closed" ? " closed" : ""}`;
+            state.textContent = thread.status === "closed" ? "Geschlossen" : "Offen";
+            summary.append(title, state);
+            ticket.append(summary);
+            ticket.open = thread.id === activeSupportThreadId;
+            ticket.addEventListener("toggle", () => {
+              if (ticket.open) activeSupportThreadId = thread.id;
+              else if (activeSupportThreadId === thread.id) activeSupportThreadId = null;
+            });
             for (const message of thread.messages) {
               const content = document.createElement("p");
               content.className = `support-message${message.sender_is_admin ? " admin" : ""}`;
               content.textContent = `${message.sender_is_admin ? "Wertweit-Support" : thread.email}: ${message.body}`;
-              section.append(content);
+              ticket.append(content);
             }
             const form = document.createElement("form");
             form.className = "support-reply";
@@ -345,13 +384,15 @@
               setBusy(send, true);
               try {
                 await callAdmin("reply-support", { threadId: thread.id, body: reply.value });
+                activeSupportThreadId = thread.id;
                 await loadSupport();
               } catch (error) {
                 setStatus(supportStatus, error.message, "error");
                 setBusy(send, false);
               }
             });
-            section.append(form);
+            ticket.append(form);
+            section.append(ticket);
             supportThreads.append(section);
           }
           setStatus(supportStatus, `${threads.length} Unterhaltung${threads.length === 1 ? "" : "en"} geladen.`, "success");
@@ -402,8 +443,9 @@
           if (error) throw error;
           await showDashboard();
         } catch (error) {
-          const { error: signOutError } = await supabase.auth.signOut();
-          const message = [error.message || "Anmeldung fehlgeschlagen.", signOutError?.message].filter(Boolean).join(" ");
+          const message = isNetworkFailure(error)
+            ? "Verbindung zu Supabase fehlgeschlagen. Prüfe deine Internetverbindung und lade die Seite erneut. Eine bereits erfolgreiche Anmeldung bleibt gespeichert."
+            : error.message || "Anmeldung oder Admin-Prüfung fehlgeschlagen.";
           setStatus(loginStatus, message, "error");
         } finally {
           setBusy(button, false);
@@ -449,8 +491,9 @@
         try {
           await showDashboard();
         } catch (error) {
-          const { error: signOutError } = await supabase.auth.signOut();
-          const message = [error.message || "Admin-Berechtigung konnte nicht geprüft werden.", signOutError?.message].filter(Boolean).join(" ");
+          const message = isNetworkFailure(error)
+            ? "Verbindung zu Supabase fehlgeschlagen. Deine Anmeldung bleibt gespeichert. Lade die Seite erneut, sobald die Verbindung wieder da ist."
+            : error.message || "Admin-Berechtigung konnte nicht geprüft werden.";
           setStatus(loginStatus, message, "error");
         }
       }

@@ -60,6 +60,8 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var isAwaitingEmailConfirmation = false
     @Published private(set) var emailConfirmationEmail = ""
     @Published private(set) var supportThreads: [WertweitSupportThread] = []
+    @Published private(set) var supportStatusMessage: String?
+    @Published private(set) var supportStatusIsError = false
 
     private let projectURL: URL?
     private let publishableKey: String
@@ -300,14 +302,18 @@ final class SupabaseSessionStore: ObservableObject {
                 accessToken: currentSession.accessToken
             )
             supportThreads = try JSONDecoder().decode(SupportThreadsResponse.self, from: data).threads
+            supportStatusMessage = nil
+            supportStatusIsError = false
         } catch {
-            statusMessage = "Support-Nachrichten konnten nicht geladen werden. Bitte versuche es erneut."
+            supportStatusMessage = "Support-Nachrichten konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
+            supportStatusIsError = true
         }
     }
 
     func sendSupportMessage(subject: String, body: String) async {
         guard session != nil else { return }
-        statusMessage = nil
+        supportStatusMessage = nil
+        supportStatusIsError = false
         do {
             try await refreshSessionIfNeeded()
             guard let currentSession = self.session else { throw SupabaseRequestError.incompleteSession }
@@ -317,9 +323,20 @@ final class SupabaseSessionStore: ObservableObject {
                 accessToken: currentSession.accessToken
             )
             await refreshSupportThreads()
-            statusMessage = "Deine Nachricht wurde an den Wertweit-Support gesendet."
+            if supportStatusIsError {
+                supportStatusMessage = "Deine Nachricht wurde gesendet. Der Verlauf konnte nicht aktualisiert werden; tippe auf Aktualisieren."
+                supportStatusIsError = false
+            } else {
+                supportStatusMessage = "Deine Nachricht wurde an den Wertweit-Support gesendet."
+            }
         } catch {
-            statusMessage = "Deine Nachricht konnte nicht gesendet werden. Bitte versuche es erneut."
+            if case let SupabaseRequestError.invalidResponse(status, serverError) = error,
+               let message = serverError?.message ?? serverError?.msg ?? serverError?.errorDescription {
+                supportStatusMessage = "Nachricht konnte nicht gesendet werden (HTTP \(status)): \(message)"
+            } else {
+                supportStatusMessage = "Deine Nachricht konnte nicht gesendet werden. Prüfe deine Verbindung und versuche es erneut."
+            }
+            supportStatusIsError = true
         }
     }
 

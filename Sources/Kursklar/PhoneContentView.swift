@@ -1,5 +1,6 @@
 import StoreKit
 import SwiftUI
+import UserNotifications
 
 private enum CurrencySide: String, Identifiable {
     case source
@@ -54,6 +55,8 @@ struct PhoneContentView: View {
     @State private var supportSubject = ""
     @State private var supportBody = ""
     @State private var supportSending = false
+    @State private var notificationTestMessage: String?
+    @StateObject private var notificationTester = LocalNotificationTester()
     private let ink = Color(red: 0.10, green: 0.16, blue: 0.15)
     private let green = Color(red: 0.12, green: 0.39, blue: 0.30)
     private let lime = Color(red: 0.80, green: 0.91, blue: 0.39)
@@ -260,6 +263,12 @@ struct PhoneContentView: View {
                     Label("Käufe wiederherstellen", systemImage: "arrow.clockwise")
                 }
 
+                Button {
+                    Task { notificationTestMessage = await notificationTester.sendTestNotification() }
+                } label: {
+                    Label("Test-Benachrichtigung", systemImage: "bell.badge")
+                }
+
                 Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
                     Label("Abo verwalten", systemImage: "creditcard")
                 }
@@ -280,6 +289,14 @@ struct PhoneContentView: View {
                 Button("OK", role: .cancel) { subscriptionStore.dismissMessage() }
             } message: {
                 Text(subscriptionStore.message ?? "")
+            }
+            .alert("Benachrichtigungstest", isPresented: Binding(
+                get: { notificationTestMessage != nil },
+                set: { isPresented in if !isPresented { notificationTestMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { notificationTestMessage = nil }
+            } message: {
+                Text(notificationTestMessage ?? "")
             }
         }
         .padding(.horizontal, 22)
@@ -328,7 +345,8 @@ struct PhoneContentView: View {
                             supportSending = true
                             await authStore.sendSupportMessage(subject: supportSubject, body: supportBody)
                             supportSending = false
-                            if authStore.statusMessage?.contains("wurde an den Wertweit-Support gesendet") == true {
+                            if authStore.supportStatusMessage?.contains("wurde an den Wertweit-Support gesendet") == true
+                                || authStore.supportStatusMessage?.contains("wurde gesendet. Der Verlauf") == true {
                                 supportSubject = ""
                                 supportBody = ""
                             }
@@ -347,6 +365,13 @@ struct PhoneContentView: View {
                         || supportBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+
+                    if let message = authStore.supportStatusMessage {
+                        Text(message)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(authStore.supportStatusIsError ? .red : green)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Section("Deine Unterhaltungen") {
@@ -355,26 +380,30 @@ struct PhoneContentView: View {
                             .foregroundStyle(ink.opacity(0.6))
                     } else {
                         ForEach(authStore.supportThreads) { thread in
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(thread.subject)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(ink)
-                                ForEach(thread.messages) { message in
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(message.senderIsAdmin ? "Wertweit-Support" : "Du")
+                            NavigationLink {
+                                supportConversationView(thread)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    HStack {
+                                        Text(thread.subject)
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(ink)
+                                        Spacer()
+                                        Text(thread.status == "closed" ? "Geschlossen" : "Offen")
                                             .font(.system(size: 11, weight: .semibold))
                                             .foregroundStyle(green)
-                                        Text(message.body)
-                                            .font(.system(size: 13))
-                                            .foregroundStyle(ink)
                                     }
-                                    .padding(10)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(message.senderIsAdmin ? green.opacity(0.08) : canvas,
-                                                in: RoundedRectangle(cornerRadius: 9))
+                                    if let latestMessage = thread.messages.last {
+                                        Text(latestMessage.body)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(ink.opacity(0.62))
+                                            .lineLimit(2)
+                                    }
+                                    Text(formattedSupportDate(thread.updatedAt))
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(ink.opacity(0.48))
                                 }
                             }
-                            .padding(.vertical, 6)
                         }
                     }
                 }
@@ -400,6 +429,45 @@ struct PhoneContentView: View {
         .tint(green)
     }
 
+    private func supportConversationView(_ thread: WertweitSupportThread) -> some View {
+        List {
+            Section {
+                ForEach(thread.messages) { message in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(message.senderIsAdmin ? "Wertweit-Support" : "Du")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(green)
+                            Spacer()
+                            Text(formattedSupportDate(message.createdAt))
+                                .font(.system(size: 10))
+                                .foregroundStyle(ink.opacity(0.48))
+                        }
+                        Text(message.body)
+                            .font(.system(size: 14))
+                            .foregroundStyle(ink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.vertical, 5)
+                }
+            } header: {
+                Text(thread.status == "closed" ? "Ticket geschlossen" : "Ticket offen")
+            }
+        }
+        .navigationTitle(thread.subject)
+        .navigationBarTitleDisplayMode(.inline)
+        .listStyle(.insetGrouped)
+    }
+
+    private func formattedSupportDate(_ value: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        if let date = formatter.date(from: value) {
+            return date.formatted(date: .abbreviated, time: .shortened)
+        }
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value)?.formatted(date: .abbreviated, time: .shortened) ?? value
+    }
+
     private var loadingPage: some View {
         ZStack {
             canvas.ignoresSafeArea()
@@ -415,6 +483,7 @@ struct PhoneContentView: View {
                     .controlSize(.small)
                     .tint(green)
             }
+
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Kursklar wird geladen")
@@ -510,6 +579,7 @@ struct PhoneContentView: View {
                                 .accessibilityLabel("Kurs erneut laden")
                             }
                         }
+
                     }
                 }
             }
@@ -913,6 +983,13 @@ private struct ProPaywallView: View {
                         .foregroundStyle(ink.opacity(0.58))
                 }
 
+                #if DEBUG
+                Text("Lokaler Xcode-Test: 0 €, keine Abbuchung. Nur mit dem Schema „Wertweit Pro Test“.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(green)
+                    .fixedSize(horizontal: false, vertical: true)
+                #endif
+
                 Text(store.purchaseDisclosure(for: product))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(green)
@@ -983,5 +1060,44 @@ private struct ProPaywallView: View {
                 .foregroundStyle(ink.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+private final class LocalNotificationTester: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+    override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func sendTestNotification() async -> String {
+        let center = UNUserNotificationCenter.current()
+        do {
+            let permitted = try await center.requestAuthorization(options: [.alert, .sound])
+            guard permitted else {
+                return "Benachrichtigungen sind in den iPhone-Einstellungen für Wertweit nicht erlaubt."
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Wertweit"
+            content.body = "Der Benachrichtigungstest funktioniert."
+            content.sound = .default
+            let request = UNNotificationRequest(
+                identifier: "wertweit-notification-test",
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)
+            )
+            try await center.add(request)
+            return "Der Test ist geplant und sollte in etwa 3 Sekunden erscheinen. Dies ist eine lokale Testnachricht, keine Server-Push-Nachricht."
+        } catch {
+            return "Die Test-Benachrichtigung konnte nicht geplant werden: \(error.localizedDescription)"
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
     }
 }
