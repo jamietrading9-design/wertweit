@@ -53,6 +53,10 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var isLoading = true
     @Published private(set) var maintenanceEnabled = false
     @Published private(set) var maintenanceMessage = "Wertweit wird gerade gewartet. Bitte versuche es später erneut."
+    @Published private(set) var proOfferTitle = "Mehr Überblick auf Reisen."
+    @Published private(set) var proOfferMessage = "Der Währungsrechner bleibt kostenlos. Pro bündelt die Reise- und Analysewerkzeuge."
+    @Published private(set) var proMonthlyOfferMessage = "Flexible Nutzung, monatliche Abrechnung."
+    @Published private(set) var proYearlyOfferMessage = "Der Jahreszugang für deine Reiseplanung."
     @Published private(set) var statusMessage: String?
     @Published private(set) var configurationError: String?
     @Published private(set) var isBlocked = false
@@ -310,6 +314,21 @@ final class SupabaseSessionStore: ObservableObject {
         }
     }
 
+    func recordAppOpen() async {
+        guard session != nil, !isBlocked else { return }
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = self.session else { throw SupabaseRequestError.incompleteSession }
+            _ = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: PortalAction(action: "record-app-open"),
+                accessToken: currentSession.accessToken
+            )
+        } catch {
+            NSLog("Wertweit app analytics could not record an app session: %@", error.localizedDescription)
+        }
+    }
+
     func sendSupportMessage(subject: String, body: String) async {
         guard session != nil else { return }
         supportStatusMessage = nil
@@ -344,7 +363,10 @@ final class SupabaseSessionStore: ObservableObject {
         guard let projectURL, !publishableKey.isEmpty else { return }
         var components = URLComponents(url: projectURL.appendingPathComponent("rest/v1/app_settings"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
-            URLQueryItem(name: "select", value: "maintenance_enabled,maintenance_message"),
+            URLQueryItem(
+                name: "select",
+                value: "maintenance_enabled,maintenance_message,pro_offer_title,pro_offer_message,pro_monthly_offer_message,pro_yearly_offer_message"
+            ),
             URLQueryItem(name: "id", value: "eq.1")
         ]
         guard let url = components?.url else {
@@ -369,6 +391,10 @@ final class SupabaseSessionStore: ObservableObject {
             }
             maintenanceEnabled = settings.maintenanceEnabled
             maintenanceMessage = settings.maintenanceMessage
+            proOfferTitle = settings.proOfferTitle ?? proOfferTitle
+            proOfferMessage = settings.proOfferMessage ?? proOfferMessage
+            proMonthlyOfferMessage = settings.proMonthlyOfferMessage ?? proMonthlyOfferMessage
+            proYearlyOfferMessage = settings.proYearlyOfferMessage ?? proYearlyOfferMessage
         } catch {
             statusMessage = "Der Wartungsstatus konnte nicht aktualisiert werden. Ohne Verbindung bleibt die App verfügbar."
         }
@@ -582,10 +608,18 @@ private struct SupabaseErrorResponse: Decodable {
 private struct AppSettings: Decodable {
     let maintenanceEnabled: Bool
     let maintenanceMessage: String
+    let proOfferTitle: String?
+    let proOfferMessage: String?
+    let proMonthlyOfferMessage: String?
+    let proYearlyOfferMessage: String?
 
     enum CodingKeys: String, CodingKey {
         case maintenanceEnabled = "maintenance_enabled"
         case maintenanceMessage = "maintenance_message"
+        case proOfferTitle = "pro_offer_title"
+        case proOfferMessage = "pro_offer_message"
+        case proMonthlyOfferMessage = "pro_monthly_offer_message"
+        case proYearlyOfferMessage = "pro_yearly_offer_message"
     }
 }
 

@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -67,6 +67,15 @@ Deno.serve(async (request) => {
       proUntil,
       hasAdminPro: proUntil !== null && Date.parse(proUntil) > Date.now(),
     });
+  }
+
+  if (payload.action === "record-app-open") {
+    const { data, error } = await supabase.rpc("record_app_open", { p_user_id: userId });
+    if (error) {
+      console.error("Could not record app session", error.message);
+      return respond({ error: "App session could not be recorded" }, 502);
+    }
+    return respond({ recorded: data === true });
   }
 
   if (payload.action === "list-support") {

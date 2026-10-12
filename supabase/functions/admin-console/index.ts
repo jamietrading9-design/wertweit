@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -58,6 +58,22 @@ Deno.serve(async (request) => {
     const perPage = Number(payload.perPage ?? 50);
     if (!Number.isInteger(page) || page < 1 || !Number.isInteger(perPage) || perPage < 1 || perPage > 100) {
       return respond({ error: "Invalid pagination values" }, 400);
+    }
+
+    if (payload.action === "dashboard-metrics") {
+      const [{ data: metrics, error: metricsError }, { data: users, error: usersError }] = await Promise.all([
+        supabase.rpc("admin_dashboard_metrics"),
+        supabase.auth.admin.listUsers({ page: 1, perPage: 1 }),
+      ]);
+      if (metricsError) {
+        console.error("Could not load dashboard metrics", metricsError.message);
+        return respond({ error: "Dashboard statistics could not be loaded" }, 502);
+      }
+      if (usersError) {
+        console.error("Could not count user accounts", usersError.message);
+        return respond({ error: "Account statistics could not be loaded" }, 502);
+      }
+      return respond({ metrics: { ...metrics, total_accounts: users.total ?? 0 } });
     }
 
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
@@ -342,7 +358,7 @@ Deno.serve(async (request) => {
   if (payload.action === "get-settings") {
     const { data, error } = await supabase
       .from("app_settings")
-      .select("maintenance_enabled, maintenance_message, updated_at")
+      .select("maintenance_enabled, maintenance_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
       .eq("id", 1)
       .single();
 
@@ -377,6 +393,34 @@ Deno.serve(async (request) => {
     if (error) {
       console.error("Could not update maintenance settings", error.message);
       return respond({ error: "Maintenance settings could not be saved" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "update-pro-offer") {
+    const { title, message, monthlyMessage, yearlyMessage } = payload;
+    if (typeof title !== "string" || title.trim().length < 1 || title.trim().length > 80 ||
+        typeof message !== "string" || message.trim().length < 1 || message.trim().length > 500 ||
+        typeof monthlyMessage !== "string" || monthlyMessage.trim().length < 1 || monthlyMessage.trim().length > 160 ||
+        typeof yearlyMessage !== "string" || yearlyMessage.trim().length < 1 || yearlyMessage.trim().length > 160) {
+      return respond({ error: "Offer text is required and must fit within the displayed character limits" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("app_settings")
+      .update({
+        pro_offer_title: title.trim(),
+        pro_offer_message: message.trim(),
+        pro_monthly_offer_message: monthlyMessage.trim(),
+        pro_yearly_offer_message: yearlyMessage.trim(),
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      })
+      .eq("id", 1)
+      .select("pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
+      .single();
+    if (error) {
+      console.error("Could not update Pro offer copy", error.message);
+      return respond({ error: "Pro offer text could not be saved" }, 502);
     }
     return respond({ settings: data });
   }

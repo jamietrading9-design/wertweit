@@ -51,14 +51,19 @@
     .support-thread:first-child { border-top: 0; }
     .support-ticket summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; cursor: pointer; list-style: none; }
     .support-ticket summary::-webkit-details-marker { display: none; }
-    .support-ticket summary::after { content: "Ticket öffnen"; flex: none; color: var(--green); font-size: 11px; font-weight: 700; }
+    .support-ticket summary::after { content: "Ticket öffnen"; flex: none; color: var(--leaf); font-size: 11px; font-weight: 700; }
     .support-ticket[open] summary::after { content: "Ticket schließen"; }
     .support-ticket-title { display: grid; gap: 4px; min-width: 0; }
     .support-ticket-title strong { overflow-wrap: anywhere; }
     .support-ticket-meta, .support-ticket-preview { color: var(--muted); font-size: 11px; font-weight: 400; }
     .support-ticket-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .support-ticket-state { display: inline-block; width: fit-content; border-radius: 999px; padding: 3px 8px; background: #e7f0e9; color: var(--green); font-size: 10px; font-weight: 700; }
+    .support-ticket-state { display: inline-block; width: fit-content; border-radius: 999px; padding: 3px 8px; background: #e7f0e9; color: var(--leaf); font-size: 10px; font-weight: 700; }
     .support-ticket-state.closed { background: #eef0ed; color: var(--muted); }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin-top: 16px; }
+    .metric { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+    .metric strong { display: block; font-size: 24px; }
+    .metric span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .notice { padding: 12px 14px; border-radius: 10px; background: #f1f4e6; color: var(--ink); font-size: 12px; line-height: 1.6; }
     .support-message { margin: 10px 0; padding: 10px 12px; background: var(--paper); font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
     .support-message.admin { margin-left: 24px; background: #e7f0e9; }
     .support-reply { display: grid; gap: 8px; margin: 12px 0 0 24px; }
@@ -92,15 +97,43 @@
 
     <section id="dashboard" hidden>
       <div class="toolbar">
-        <div><h1>Übersicht</h1><p class="intro">Accounts ansehen und den App-Wartungsmodus verwalten.</p></div>
+        <div><h1>Übersicht</h1><p class="intro">Nutzer, App-Nutzung, Pro-Zugänge, Angebote und Support verwalten.</p></div>
         <button id="logout-button" class="secondary" type="button">Abmelden</button>
       </div>
+      <section class="card" aria-labelledby="metrics-title">
+        <div class="card-heading"><h2 id="metrics-title">App-Kennzahlen</h2><button id="refresh-metrics" class="secondary" type="button">Aktualisieren</button></div>
+        <p class="intro">App-Starts werden pro angemeldetem Konto höchstens einmal innerhalb von 30 Minuten gezählt. Werte beginnen nach dem Update der App zu wachsen.</p>
+        <p id="metrics-status" class="status" role="status"></p>
+        <div class="metrics-grid" aria-live="polite">
+          <div class="metric"><strong id="metric-total-accounts">–</strong><span>Registrierte Konten</span></div>
+          <div class="metric"><strong id="metric-opens-today">–</strong><span>App-Sitzungen heute</span></div>
+          <div class="metric"><strong id="metric-opens-30d">–</strong><span>App-Sitzungen in 30 Tagen</span></div>
+          <div class="metric"><strong id="metric-active-users">–</strong><span>Aktive Konten in 30 Tagen</span></div>
+          <div class="metric"><strong id="metric-pro-users">–</strong><span>Nicht abgelaufene Admin-Pro-Freigaben</span></div>
+          <div class="metric"><strong id="metric-blocked-users">–</strong><span>Gesperrte Konten</span></div>
+          <div class="metric"><strong id="metric-open-tickets">–</strong><span>Offene Support-Tickets</span></div>
+          <div class="metric"><strong id="metric-opens-365d">–</strong><span>App-Sitzungen der letzten 365 Tage</span></div>
+        </div>
+      </section>
       <section class="card" aria-labelledby="maintenance-title">
         <div class="card-heading"><h2 id="maintenance-title">Wartungsmodus</h2><span id="maintenance-state" class="status"></span></div>
         <label class="setting"><input id="maintenance-enabled" type="checkbox"> App für Nutzer online sperren</label>
         <label>Nachricht in der App<textarea id="maintenance-message" maxlength="500" required></textarea></label>
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
+      </section>
+      <section class="card" aria-labelledby="pro-offer-title">
+        <div class="card-heading"><h2 id="pro-offer-title">Pro-Angebot in der App</h2></div>
+        <p class="notice">Hier änderst du Werbetexte und Hinweise, nicht Apples tatsächlichen Abopreis. Monatspreis, Jahrespreis, Laufzeit und Kündigung verwaltest du in App Store Connect. App-Store-Käufe oder Umsätze lassen sich erst mit einer zusätzlich eingerichteten Apple-Server-Anbindung verlässlich anzeigen.</p>
+        <div class="fields">
+          <label>Überschrift<input id="pro-offer-title" maxlength="80" required></label>
+          <label>Beschreibung<textarea id="pro-offer-message" maxlength="500" required></textarea></label>
+          <label>Hinweis beim Monatsabo<input id="pro-monthly-message" maxlength="160" required></label>
+          <label>Hinweis beim Jahresabo<input id="pro-yearly-message" maxlength="160" required></label>
+          <button id="save-pro-offer" type="button">Angebotstexte speichern</button>
+        </div>
+        <p id="pro-offer-status" class="status" role="status"></p>
+        <p><a href="https://appstoreconnect.apple.com/" target="_blank" rel="noreferrer">App Store Connect öffnen, um echte Abo-Preise zu ändern</a></p>
       </section>
       <section class="card" aria-labelledby="accounts-title">
         <div class="card-heading"><h2 id="accounts-title">Nutzerkonten</h2><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
@@ -140,6 +173,8 @@
     const usersBody = document.querySelector("#users-body");
     const supportStatus = document.querySelector("#support-status");
     const supportThreads = document.querySelector("#support-threads");
+    const metricsStatus = document.querySelector("#metrics-status");
+    const proOfferStatus = document.querySelector("#pro-offer-status");
     const perPage = 25;
     let page = 1;
     let total = 0;
@@ -178,6 +213,9 @@
         if (error) {
           let message = data?.error || error.message || "Admin-Anfrage fehlgeschlagen";
           const context = error.context;
+          if (error.name === "FunctionsFetchError" || error.message === "Failed to send a request to the Edge Function") {
+            message = "Die Supabase-Edge-Function admin-console ist über das Netz nicht erreichbar. Prüfe die Supabase-Verbindung und die CORS-Freigabe für x-supabase-api-version.";
+          }
           if (context instanceof Response) {
             try {
               const responseBody = await context.clone().json();
@@ -200,7 +238,7 @@
         const { settings } = await callAdmin("get-settings");
         loginView.hidden = true;
         dashboard.hidden = false;
-        await Promise.all([loadSettings(settings), loadUsers(), loadSupport()]);
+        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics()]);
       }
 
       async function loadSettings(settings) {
@@ -209,9 +247,40 @@
           document.querySelector("#maintenance-enabled").checked = settings.maintenance_enabled;
           document.querySelector("#maintenance-message").value = settings.maintenance_message;
           document.querySelector("#maintenance-state").textContent = settings.maintenance_enabled ? "App ist gesperrt" : "App ist aktiv";
+          document.querySelector("#pro-offer-title").value = settings.pro_offer_title;
+          document.querySelector("#pro-offer-message").value = settings.pro_offer_message;
+          document.querySelector("#pro-monthly-message").value = settings.pro_monthly_offer_message;
+          document.querySelector("#pro-yearly-message").value = settings.pro_yearly_offer_message;
           setStatus(maintenanceStatus, `Zuletzt geändert: ${formatDate(settings.updated_at)}`, "success");
         } catch (error) {
           setStatus(maintenanceStatus, error.message, "error");
+        }
+      }
+
+      async function loadMetrics() {
+        const button = document.querySelector("#refresh-metrics");
+        setBusy(button, true);
+        setStatus(metricsStatus, "Kennzahlen werden geladen …");
+        try {
+          const { metrics } = await callAdmin("dashboard-metrics");
+          const values = {
+            "metric-total-accounts": metrics.total_accounts,
+            "metric-opens-today": metrics.app_opens_today,
+            "metric-opens-30d": metrics.app_opens_30d,
+            "metric-active-users": metrics.active_users_30d,
+            "metric-pro-users": metrics.active_admin_pro,
+            "metric-blocked-users": metrics.blocked_accounts,
+            "metric-open-tickets": metrics.open_support_tickets,
+            "metric-opens-365d": metrics.app_opens_365d,
+          };
+          for (const [id, value] of Object.entries(values)) {
+            document.getElementById(id).textContent = Number(value).toLocaleString("de-DE");
+          }
+          setStatus(metricsStatus, "Kennzahlen aktualisiert.", "success");
+        } catch (error) {
+          setStatus(metricsStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
         }
       }
 
@@ -470,6 +539,26 @@
         }
       });
 
+      document.querySelector("#save-pro-offer").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        setBusy(button, true);
+        setStatus(proOfferStatus, "Angebotstexte werden gespeichert …");
+        try {
+          await callAdmin("update-pro-offer", {
+            title: document.querySelector("#pro-offer-title").value,
+            message: document.querySelector("#pro-offer-message").value,
+            monthlyMessage: document.querySelector("#pro-monthly-message").value,
+            yearlyMessage: document.querySelector("#pro-yearly-message").value,
+          });
+          setStatus(proOfferStatus, "Angebotstexte gespeichert. Sie erscheinen nach dem nächsten App-Start bzw. Aktualisieren.", "success");
+        } catch (error) {
+          setStatus(proOfferStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#refresh-metrics").addEventListener("click", loadMetrics);
       document.querySelector("#refresh-users").addEventListener("click", loadUsers);
       document.querySelector("#refresh-support").addEventListener("click", loadSupport);
       document.querySelector("#previous-page").addEventListener("click", () => { page -= 1; loadUsers(); });

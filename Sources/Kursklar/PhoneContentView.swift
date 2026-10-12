@@ -116,6 +116,7 @@ struct PhoneContentView: View {
         .task {
             await authStore.refreshAccountAccess()
             subscriptionStore.setAdminPro(until: authStore.adminProUntil)
+            await authStore.recordAppOpen()
             await authStore.refreshSupportThreads()
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             withAnimation(.easeOut(duration: 0.25)) {
@@ -129,6 +130,7 @@ struct PhoneContentView: View {
                 Task {
                     await authStore.refreshAccountAccess()
                     subscriptionStore.setAdminPro(until: authStore.adminProUntil)
+                    await authStore.recordAppOpen()
                     await authStore.refreshSupportThreads()
                 }
                 Task { await subscriptionStore.refreshEntitlements() }
@@ -136,7 +138,10 @@ struct PhoneContentView: View {
         }
         .onChange(of: subscriptionStore.hasProAccess) { hasProAccess in
             if hasProAccess, activeSheet?.id == AppSheet.pro.id {
-                activeSheet = nil
+                Task { @MainActor in
+                    await Task.yield()
+                    activeSheet = nil
+                }
             }
         }
         .sheet(item: $activeSheet) { sheet in
@@ -148,6 +153,10 @@ struct PhoneContentView: View {
             case .pro:
                 ProPaywallView(
                     store: subscriptionStore,
+                    offerTitle: authStore.proOfferTitle,
+                    offerMessage: authStore.proOfferMessage,
+                    monthlyOfferMessage: authStore.proMonthlyOfferMessage,
+                    yearlyOfferMessage: authStore.proYearlyOfferMessage,
                     onShowPrivacy: { activeSheet = .legal(.privacy) },
                     onClose: { activeSheet = nil }
                 )
@@ -180,7 +189,12 @@ struct PhoneContentView: View {
         .alert("Konto", isPresented: Binding(
             get: { authStore.statusMessage != nil },
             set: { isPresented in
-                if !isPresented { authStore.clearStatusMessage() }
+                if !isPresented {
+                    Task { @MainActor in
+                        await Task.yield()
+                        authStore.clearStatusMessage()
+                    }
+                }
             }
         )) {
             Button("OK", role: .cancel) { authStore.clearStatusMessage() }
@@ -781,6 +795,14 @@ struct PhoneContentView: View {
                             Text("Die App fragt außerdem den Wartungsstatus von Supabase ab. Ohne Internetverbindung kann eine neu eingeschaltete Wartung nicht sofort auf dem Gerät ankommen; der zuletzt bekannte Zustand bleibt wirksam.")
                         }
 
+                        privacySection("Nutzungsstatistik") {
+                            Text("Bei einem App-Start und beim erneuten Öffnen nach längerer Inaktivität sendet die App eine Sitzungsmarkierung mit deiner Konto-ID an Supabase. Derselbe Account wird höchstens einmal innerhalb von 30 Minuten gezählt. Die Statistik dient dem Betrieb und der Verbesserung der App; im Adminbereich werden zusammengefasste Sitzungs- und Nutzerzahlen angezeigt. Die Kennzahlen umfassen höchstens 365 Tage; ältere Sitzungsmarkierungen werden bei einem späteren erfassten App-Start entfernt.")
+                        }
+
+                        privacySection("Nutzungsstatistik") {
+                            Text("Bei einem App-Start und beim erneuten Öffnen nach längerer Inaktivität sendet die App eine Sitzungsmarkierung mit deiner Konto-ID an Supabase. Derselbe Account wird höchstens einmal innerhalb von 30 Minuten gezählt. Die Statistik dient dem Betrieb und der Verbesserung der App; im Adminbereich werden zusammengefasste Sitzungs- und Nutzerzahlen angezeigt. Sitzungsmarkierungen werden nach spätestens 365 Tagen gelöscht.")
+                        }
+
                         privacySection("Kursdienst") {
                             Text("Für Währungsliste, aktuelle Kurse und historische Verläufe verbindet sich die App mit api.frankfurter.dev. Übertragen werden die angefragte Währung und bei historischen Kursen der Zeitraum. Dein eingegebener Betrag und der Text deiner lokalen Umrechnungsfrage werden nicht an den Kursdienst gesendet.")
                             Text("Wie bei Internetanfragen üblich, können der Kursdienst und seine Hosting- oder Netzwerkdienstleister technische Verbindungsdaten wie IP-Adresse, Zeitpunkt und angefragte Ressource verarbeiten. Die App selbst bindet keine Analyse- oder Werbedienste ein.")
@@ -866,6 +888,10 @@ private enum ProBillingPeriod: String, CaseIterable, Identifiable {
 private struct ProPaywallView: View {
     @State private var billingPeriod: ProBillingPeriod = .yearly
     @ObservedObject var store: SubscriptionStore
+    let offerTitle: String
+    let offerMessage: String
+    let monthlyOfferMessage: String
+    let yearlyOfferMessage: String
     let onShowPrivacy: () -> Void
     let onClose: () -> Void
 
@@ -914,12 +940,12 @@ private struct ProPaywallView: View {
                         .foregroundStyle(green)
                 }
 
-                Text("Mehr Überblick auf Reisen.")
+                Text(offerTitle)
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
                     .foregroundStyle(ink)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Der Währungsrechner bleibt kostenlos. Pro bündelt die Reise- und Analysewerkzeuge.")
+                Text(offerMessage)
                     .font(.system(size: 14))
                     .foregroundStyle(ink.opacity(0.66))
                     .fixedSize(horizontal: false, vertical: true)
@@ -993,6 +1019,11 @@ private struct ProPaywallView: View {
                 Text(store.purchaseDisclosure(for: product))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(green)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(billingPeriod == .monthly ? monthlyOfferMessage : yearlyOfferMessage)
+                    .font(.system(size: 12))
+                    .foregroundStyle(ink.opacity(0.62))
                     .fixedSize(horizontal: false, vertical: true)
 
                 Button {
