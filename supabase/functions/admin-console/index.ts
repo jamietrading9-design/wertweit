@@ -163,9 +163,6 @@ Deno.serve(async (request) => {
     if (typeof payload.userId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.userId)) {
       return respond({ error: "Invalid user ID" }, 400);
     }
-    if (payload.userId === authData.user.id) {
-      return respond({ error: "You cannot change your own admin Pro access here" }, 400);
-    }
     if (typeof payload.proUntil !== "string") {
       return respond({ error: "A Pro expiration date is required" }, 400);
     }
