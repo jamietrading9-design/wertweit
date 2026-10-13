@@ -78,6 +78,21 @@
     .support-reply textarea { min-height: 64px; }
     .email-compose { display: grid; gap: 13px; margin-top: 18px; }
     .email-compose textarea { min-height: 150px; }
+    .invoice-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; margin-top: 18px; }
+    .invoice-fields .wide { grid-column: 1 / -1; }
+    .invoice-logo-preview { display: flex; align-items: center; gap: 12px; }
+    .invoice-logo-preview img { width: 120px; height: 64px; object-fit: contain; border: 1px solid var(--line); }
+    .invoice-item-row input { min-width: 90px; }
+    .invoice-item-row .item-description { min-width: 180px; }
+    .invoice-item-row button, .invoice-list-actions button { min-height: 34px; padding: 0 10px; font-size: 11px; }
+    .invoice-list-actions { display: flex; gap: 7px; }
+    .invoice-customer-form { margin: 16px 0; padding: 14px; border: 1px solid var(--line); }
+    .invoice-customer-form summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+    .invoice-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
+    .invoice-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; font-size: 12px; }
+    dialog { width: min(620px, calc(100% - 28px)); max-height: 90vh; overflow: auto; border: 1px solid var(--line); padding: 22px; color: var(--ink); }
+    dialog::backdrop { background: rgba(11, 43, 36, .55); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     [hidden] { display: none !important; }
     @media (max-width: 600px) {
       .bar { min-height: 64px; padding: 0 18px; }
@@ -85,6 +100,7 @@
       .card { padding: 19px; }
       .toolbar { align-items: flex-start; flex-direction: column; }
       .card-heading { align-items: flex-start; flex-direction: column; }
+      .invoice-fields .wide { grid-column: auto; }
     }
   </style>
 </head>
@@ -133,8 +149,8 @@
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
       </section>
-      <section class="card" aria-labelledby="pro-offer-title">
-        <div class="card-heading"><h2 id="pro-offer-title">Pro-Angebot in der App</h2></div>
+      <section class="card" aria-labelledby="pro-offer-heading">
+        <div class="card-heading"><h2 id="pro-offer-heading">Pro-Angebot in der App</h2></div>
         <p class="notice">Hier änderst du Werbetexte und Hinweise, nicht Apples tatsächlichen Abopreis. Monatspreis, Jahrespreis, Laufzeit und Kündigung verwaltest du in App Store Connect. App-Store-Käufe oder Umsätze lassen sich erst mit einer zusätzlich eingerichteten Apple-Server-Anbindung verlässlich anzeigen.</p>
         <div class="fields">
           <label>Überschrift<input id="pro-offer-title" maxlength="80" required></label>
@@ -145,6 +161,107 @@
         </div>
         <p id="pro-offer-status" class="status" role="status"></p>
         <p><a href="https://appstoreconnect.apple.com/" target="_blank" rel="noreferrer">App Store Connect öffnen, um echte Abo-Preise zu ändern</a></p>
+      </section>
+      <section class="card" aria-labelledby="invoices-title">
+        <div class="card-heading">
+          <div><h2 id="invoices-title">Rechnungen</h2><p class="intro">Kunden verwalten, Rechnungen erstellen und als PDF drucken oder speichern.</p></div>
+          <button id="refresh-invoices" class="secondary" type="button">Aktualisieren</button>
+        </div>
+        <p class="notice">Rechnungen werden als Kleinunternehmer nach § 19 UStG ohne Umsatzsteuerausweis erstellt. Die Daten bleiben in deinem Supabase-Projekt und sind nur für angemeldete Admins zugänglich.</p>
+        <form id="invoice-profile-form">
+          <h3>Absender und Rechnungslogo</h3>
+          <div class="invoice-fields">
+            <label>Name / Firma<input id="invoice-seller-name" maxlength="160" required></label>
+            <label>Straße und Hausnummer<input id="invoice-seller-street" maxlength="200" required></label>
+            <label>Postleitzahl<input id="invoice-seller-postal-code" maxlength="24" required></label>
+            <label>Ort<input id="invoice-seller-city" maxlength="120" required></label>
+            <label>Land<input id="invoice-seller-country" maxlength="80" value="Deutschland" required></label>
+            <label>E-Mail<input id="invoice-seller-email" type="email" maxlength="254" required></label>
+            <label>Steuernummer oder USt-IdNr.<input id="invoice-seller-tax-id" maxlength="80" required></label>
+            <label>Telefon (optional)<input id="invoice-seller-phone" maxlength="80"></label>
+            <label>Rechnungsnummer-Präfix<input id="invoice-prefix" maxlength="8" pattern="[A-Z0-9]{2,8}" value="WW" required></label>
+            <label>Kontoinhaber (optional)<input id="invoice-bank-account-holder" maxlength="160"></label>
+            <label>IBAN für Überweisungen (optional)<input id="invoice-bank-iban" maxlength="34" autocomplete="off"></label>
+            <label>BIC (optional)<input id="invoice-bank-bic" maxlength="11" autocomplete="off"></label>
+            <label>Eigenes Rechnungslogo (PNG, JPG oder WebP, max. 512 KB)
+              <input id="invoice-logo-file" type="file" accept="image/png,image/jpeg,image/webp">
+            </label>
+            <div class="invoice-logo-preview wide">
+              <img id="invoice-logo-preview" src="./assets/wertweit-logo.png" alt="Vorschau des Rechnungslogos">
+              <button id="reset-invoice-logo" class="secondary" type="button">Wertweit-Logo verwenden</button>
+            </div>
+            <div class="wide"><button id="save-invoice-profile" type="submit">Absender speichern</button></div>
+          </div>
+        </form>
+        <p id="invoice-profile-status" class="status" role="status"></p>
+        <hr>
+        <details class="invoice-customer-form">
+          <summary>Neuen Rechnungskunden anlegen</summary>
+          <form id="invoice-customer-form" class="invoice-fields">
+            <label>Name / Firma<input id="invoice-customer-name" maxlength="160" required></label>
+            <label>E-Mail (optional)<input id="invoice-customer-email" type="email" maxlength="254"></label>
+            <label>Straße und Hausnummer<input id="invoice-customer-street" maxlength="200" required></label>
+            <label>Postleitzahl<input id="invoice-customer-postal-code" maxlength="24" required></label>
+            <label>Ort<input id="invoice-customer-city" maxlength="120" required></label>
+            <label>Land<input id="invoice-customer-country" maxlength="80" value="Deutschland" required></label>
+            <div class="wide"><button id="save-invoice-customer" type="submit">Kundenkonto speichern</button></div>
+          </form>
+        </details>
+        <form id="invoice-form">
+          <h3>Rechnung erstellen</h3>
+          <div class="invoice-fields">
+            <label>Kunde
+              <select id="invoice-customer" required>
+                <option value="">Kunden werden geladen …</option>
+              </select>
+            </label>
+            <label>Rechnungsdatum<input id="invoice-date" type="date" required></label>
+            <label>Leistungsdatum<input id="invoice-service-date" type="date" required></label>
+            <label>Zahlbar bis<input id="invoice-due-date" type="date" required></label>
+          </div>
+          <div class="card-heading">
+            <h3>Positionen</h3>
+            <button id="add-invoice-item" class="secondary" type="button">Position hinzufügen</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Beschreibung</th><th>Menge</th><th>Einzelpreis (EUR)</th><th></th></tr></thead>
+              <tbody id="invoice-items"></tbody>
+            </table>
+          </div>
+          <label class="wide">Zusätzlicher Hinweis (optional)<textarea id="invoice-note" maxlength="2000"></textarea></label>
+          <p><button id="create-invoice" type="submit">Rechnung erstellen</button></p>
+        </form>
+        <p id="invoice-status" class="status" role="status"></p>
+        <hr>
+          <div class="card-heading"><h3>Rechnungsarchiv</h3></div>
+          <div class="invoice-filter-grid">
+            <label>Suche (Kunde oder Rechnungsnummer)<input id="invoice-search" maxlength="160"></label>
+            <label>Status<select id="invoice-status-filter"><option value="all">Alle Rechnungen</option><option value="open">Offen</option><option value="paid">Bezahlt</option></select></label>
+            <label>Von<input id="invoice-from" type="date"></label>
+            <label>Bis<input id="invoice-to" type="date"></label>
+            <button id="filter-invoices" type="button">Archiv filtern</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+            <thead><tr><th>Rechnungsnummer</th><th>Datum</th><th>Kunde</th><th>Gesamt</th><th>Status</th><th>Aktionen</th></tr></thead>
+            <tbody id="invoice-list-body"></tbody>
+          </table>
+        </div>
+        <div class="invoice-pagination"><button id="invoice-previous-page" class="secondary" type="button">Zurück</button><span id="invoice-page-label"></span><button id="invoice-next-page" class="secondary" type="button">Weiter</button></div>
+        <hr>
+        <div class="card-heading"><h3>Kundenkonten</h3></div>
+        <div class="invoice-filter-grid">
+          <label>Kunden suchen<input id="customer-search" maxlength="160"></label>
+          <button id="filter-customers" type="button">Kunden suchen</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>E-Mail</th><th>Adresse</th><th>Aktionen</th></tr></thead>
+            <tbody id="invoice-customer-list"></tbody>
+          </table>
+        </div>
+        <div class="invoice-pagination"><button id="customer-previous-page" class="secondary" type="button">Zurück</button><span id="customer-page-label"></span><button id="customer-next-page" class="secondary" type="button">Weiter</button></div>
       </section>
       <section class="card" aria-labelledby="accounts-title">
         <div class="card-heading"><h2 id="accounts-title">Nutzerkonten</h2><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
@@ -199,6 +316,25 @@
       </section>
     </section>
   </main>
+  <dialog id="invoice-customer-dialog">
+    <form id="invoice-customer-edit-form">
+      <h2>Kundenkonto bearbeiten</h2>
+      <input id="edit-customer-id" type="hidden">
+      <div class="invoice-fields">
+        <label>Name / Firma<input id="edit-customer-name" maxlength="160" required></label>
+        <label>E-Mail (optional)<input id="edit-customer-email" type="email" maxlength="254"></label>
+        <label>Straße und Hausnummer<input id="edit-customer-street" maxlength="200" required></label>
+        <label>Postleitzahl<input id="edit-customer-postal-code" maxlength="24" required></label>
+        <label>Ort<input id="edit-customer-city" maxlength="120" required></label>
+        <label>Land<input id="edit-customer-country" maxlength="80" required></label>
+      </div>
+      <p id="edit-customer-status" class="status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="cancel-customer-edit" class="secondary" type="button">Abbrechen</button>
+        <button id="save-customer-edit" type="submit">Änderungen speichern</button>
+      </div>
+    </form>
+  </dialog>
   <script src="./supabase-config.js"></script>
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -216,10 +352,21 @@
     const metricsStatus = document.querySelector("#metrics-status");
     const proOfferStatus = document.querySelector("#pro-offer-status");
     const emailStatus = document.querySelector("#email-status");
+    const invoiceStatus = document.querySelector("#invoice-status");
+    const invoiceProfileStatus = document.querySelector("#invoice-profile-status");
     const perPage = 25;
     let page = 1;
     let total = 0;
     let activeSupportThreadId = null;
+    let invoiceLogoDataUrl = null;
+    let invoiceCustomers = [];
+    let selectedInvoiceCustomer = null;
+    let invoicePage = 1;
+    let invoiceTotal = 0;
+    let customerPage = 1;
+    let customerTotal = 0;
+    const invoicePerPage = 25;
+    const customerPerPage = 25;
     const selectedUserIds = new Set();
 
     function setStatus(element, message, kind = "") {
@@ -231,6 +378,30 @@
       if (!value) return "Noch nie";
       const date = new Date(value);
       return Number.isNaN(date.valueOf()) ? "Unbekannt" : new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    }
+
+    function formatInvoiceDate(value) {
+      const date = new Date(`${value}T12:00:00`);
+      return Number.isNaN(date.valueOf()) ? "Unbekannt" : new Intl.DateTimeFormat("de-DE", { dateStyle: "long" }).format(date);
+    }
+
+    function formatInvoiceAmount(cents) {
+      return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(Number(cents) / 100);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character]);
+    }
+
+    function localDateInputValue(date) {
+      const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+      return localDate.toISOString().slice(0, 10);
     }
 
     function setBusy(button, busy) {
@@ -280,7 +451,7 @@
         const { settings } = await callAdmin("get-settings");
         loginView.hidden = true;
         dashboard.hidden = false;
-        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics()]);
+        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics(), loadInvoiceWorkspace()]);
       }
 
       async function loadSettings(settings) {
@@ -297,6 +468,390 @@
         } catch (error) {
           setStatus(maintenanceStatus, error.message, "error");
         }
+      }
+
+      async function loadInvoiceWorkspace() {
+        setStatus(invoiceStatus, "Rechnungsdaten werden geladen …");
+        try {
+          const [settingsResult, customersResult, invoicesResult] = await Promise.all([
+            callAdmin("invoice-settings"),
+            callAdmin("list-invoice-customers", {
+              page: customerPage,
+              perPage: customerPerPage,
+              search: document.querySelector("#customer-search").value.trim(),
+            }),
+            fetchInvoices(),
+          ]);
+          const settings = settingsResult.settings;
+          const fields = {
+            "invoice-seller-name": settings.seller_name,
+            "invoice-seller-street": settings.street,
+            "invoice-seller-postal-code": settings.postal_code,
+            "invoice-seller-city": settings.city,
+            "invoice-seller-country": settings.country || "Deutschland",
+            "invoice-seller-email": settings.email,
+            "invoice-seller-tax-id": settings.tax_identifier,
+            "invoice-seller-phone": settings.phone,
+            "invoice-prefix": settings.invoice_prefix || "WW",
+            "invoice-bank-account-holder": settings.bank_account_holder,
+            "invoice-bank-iban": settings.bank_iban,
+            "invoice-bank-bic": settings.bank_bic,
+          };
+          for (const [id, value] of Object.entries(fields)) {
+            document.getElementById(id).value = value || "";
+          }
+          invoiceLogoDataUrl = settings.invoice_logo_data_url || null;
+          document.querySelector("#invoice-logo-preview").src =
+            invoiceLogoDataUrl || "./assets/wertweit-logo.png";
+          invoiceCustomers = customersResult.customers;
+          customerTotal = customersResult.total;
+          renderInvoiceCustomerOptions();
+          renderInvoiceCustomers();
+          renderInvoiceList(invoicesResult.invoices);
+          renderInvoicePagination();
+          renderCustomerPagination();
+
+          const today = new Date();
+          const todayValue = localDateInputValue(today);
+          const dueDate = new Date(today);
+          dueDate.setDate(dueDate.getDate() + 14);
+          for (const id of ["invoice-date", "invoice-service-date"]) {
+            const input = document.getElementById(id);
+            if (!input.value) input.value = todayValue;
+          }
+          const dueInput = document.querySelector("#invoice-due-date");
+          if (!dueInput.value) dueInput.value = localDateInputValue(dueDate);
+          setStatus(invoiceProfileStatus, "Absenderdaten geladen.");
+          setStatus(invoiceStatus, `${invoiceTotal} Rechnung${invoiceTotal === 1 ? "" : "en"} im Archiv.`, "success");
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, "error");
+        }
+      }
+
+      async function reloadInvoiceList() {
+        try {
+          const result = await fetchInvoices();
+          invoiceTotal = result.total;
+          renderInvoiceList(result.invoices);
+          renderInvoicePagination();
+          return true;
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, "error");
+          return false;
+        }
+      }
+
+      async function fetchInvoices() {
+        const result = await callAdmin("list-invoices", {
+          page: invoicePage,
+          perPage: invoicePerPage,
+          search: document.querySelector("#invoice-search").value.trim(),
+          status: document.querySelector("#invoice-status-filter").value,
+          from: document.querySelector("#invoice-from").value || null,
+          to: document.querySelector("#invoice-to").value || null,
+        });
+        invoiceTotal = result.total;
+        return result;
+      }
+
+      async function loadInvoiceCustomers() {
+        setStatus(invoiceStatus, "Kundenkonten werden geladen …");
+        try {
+          const result = await callAdmin("list-invoice-customers", {
+            page: customerPage,
+            perPage: customerPerPage,
+            search: document.querySelector("#customer-search").value.trim(),
+          });
+          invoiceCustomers = result.customers;
+          customerTotal = result.total;
+          renderInvoiceCustomerOptions();
+          renderInvoiceCustomers();
+          renderCustomerPagination();
+          setStatus(invoiceStatus, `${customerTotal} Kundenkonto/Konten gefunden.`, "success");
+          return true;
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, "error");
+          return false;
+        }
+      }
+
+      function renderInvoiceCustomers() {
+        const body = document.querySelector("#invoice-customer-list");
+        body.replaceChildren();
+        for (const customer of invoiceCustomers) {
+          const row = document.createElement("tr");
+          for (const text of [
+            customer.name,
+            customer.email || "Keine E-Mail",
+            `${customer.street}, ${customer.postal_code} ${customer.city}, ${customer.country}`,
+          ]) {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.append(cell);
+          }
+          const actionsCell = document.createElement("td");
+          const editButton = document.createElement("button");
+          editButton.type = "button";
+          editButton.className = "secondary";
+          editButton.textContent = "Bearbeiten";
+          editButton.addEventListener("click", () => openCustomerEditor(customer));
+          actionsCell.append(editButton);
+          row.append(actionsCell);
+          body.append(row);
+        }
+      }
+
+      function renderInvoicePagination() {
+        const lastPage = Math.max(1, Math.ceil(invoiceTotal / invoicePerPage));
+        document.querySelector("#invoice-page-label").textContent =
+          `Seite ${invoicePage} von ${lastPage} · ${invoiceTotal} Rechnung${invoiceTotal === 1 ? "" : "en"}`;
+        document.querySelector("#invoice-previous-page").disabled = invoicePage <= 1;
+        document.querySelector("#invoice-next-page").disabled = invoicePage >= lastPage;
+      }
+
+      function renderCustomerPagination() {
+        const lastPage = Math.max(1, Math.ceil(customerTotal / customerPerPage));
+        document.querySelector("#customer-page-label").textContent =
+          `Seite ${customerPage} von ${lastPage} · ${customerTotal} Kundenkonto/Konten`;
+        document.querySelector("#customer-previous-page").disabled = customerPage <= 1;
+        document.querySelector("#customer-next-page").disabled = customerPage >= lastPage;
+      }
+
+      function openCustomerEditor(customer) {
+        document.querySelector("#edit-customer-id").value = customer.id;
+        document.querySelector("#edit-customer-name").value = customer.name;
+        document.querySelector("#edit-customer-email").value = customer.email;
+        document.querySelector("#edit-customer-street").value = customer.street;
+        document.querySelector("#edit-customer-postal-code").value = customer.postal_code;
+        document.querySelector("#edit-customer-city").value = customer.city;
+        document.querySelector("#edit-customer-country").value = customer.country;
+        setStatus(document.querySelector("#edit-customer-status"), "Änderungen gelten nur für künftige Rechnungen. Bereits erstellte Rechnungen behalten ihre gespeicherten Kundendaten.");
+        document.querySelector("#invoice-customer-dialog").showModal();
+      }
+
+      function renderInvoiceCustomerOptions(selectedId = document.querySelector("#invoice-customer").value) {
+        const select = document.querySelector("#invoice-customer");
+        select.replaceChildren(new Option("Kundenkonto auswählen", ""));
+        for (const customer of invoiceCustomers) {
+          select.add(new Option(`${customer.name} · ${customer.city}`, customer.id));
+        }
+        const selectedCustomer = invoiceCustomers.find((customer) => customer.id === selectedId) ??
+          (selectedInvoiceCustomer?.id === selectedId ? selectedInvoiceCustomer : null);
+        if (selectedCustomer && !invoiceCustomers.some((customer) => customer.id === selectedId)) {
+          select.add(new Option(`${selectedCustomer.name} · ${selectedCustomer.city}`, selectedId));
+        }
+        if (selectedId && [...select.options].some((option) => option.value === selectedId)) {
+          select.value = selectedId;
+        }
+      }
+
+      function printInvoice(invoice, printWindow = window.open("", "_blank")) {
+        if (!printWindow) {
+          setStatus(invoiceStatus, "Der PDF-Druck wurde vom Browser blockiert. Erlaube Pop-ups für diese Admin-Seite und versuche es erneut.", "error");
+          return;
+        }
+        printWindow.opener = null;
+
+        const seller = invoice.seller_snapshot;
+        const customer = invoice.customer_snapshot;
+        const logo = seller.logoDataUrl || new URL("./assets/wertweit-logo.png", window.location.href).href;
+        const itemRows = invoice.line_items.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.description)}</td>
+            <td class="number">${escapeHtml(item.quantity)}</td>
+            <td class="number">${formatInvoiceAmount(item.unit_price_cents)}</td>
+            <td class="number">${formatInvoiceAmount(item.line_total_cents)}</td>
+          </tr>`).join("");
+        const sellerContact = [
+          seller.email,
+          seller.phone,
+          `Steuernummer / USt-IdNr.: ${seller.taxIdentifier}`,
+        ].filter(Boolean).map(escapeHtml).join("<br>");
+        const bankDetails = seller.bankIban
+          ? `<p><strong>Überweisung an:</strong><br>${escapeHtml(seller.bankAccountHolder || seller.name)}<br>IBAN: ${escapeHtml(seller.bankIban)}${seller.bankBic ? `<br>BIC: ${escapeHtml(seller.bankBic)}` : ""}</p>`
+          : "";
+        const note = invoice.note
+          ? `<p class="note">${escapeHtml(invoice.note).replace(/\n/g, "<br>")}</p>`
+          : "";
+        const html = `<!doctype html>
+          <html lang="de">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Rechnung ${escapeHtml(invoice.invoice_number)}</title>
+            <style>
+              @page { size: A4; margin: 18mm; }
+              * { box-sizing: border-box; }
+              body { margin: 0; color: #18231e; font: 12px/1.55 Arial, sans-serif; }
+              .toolbar { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+              .toolbar button { padding: 10px 16px; border: 0; border-radius: 4px; background: #123c31; color: #fff; font-weight: 700; }
+              header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 24px; border-bottom: 2px solid #123c31; }
+              header img { max-width: 170px; max-height: 72px; object-fit: contain; }
+              header address, .customer address { font-style: normal; }
+              .sender { max-width: 52%; text-align: right; color: #516057; font-size: 10px; }
+              .sender strong { display: block; color: #18231e; font-size: 13px; }
+              .address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 34px 0; }
+              .eyebrow { margin-bottom: 8px; color: #69746d; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+              .customer strong { display: block; margin-bottom: 3px; }
+              .invoice-meta { margin-top: 22px; }
+              h1 { margin: 0 0 8px; font-size: 30px; }
+              .invoice-meta p { margin: 3px 0; }
+              table { width: 100%; margin-top: 25px; border-collapse: collapse; }
+              th, td { padding: 10px 8px; border-bottom: 1px solid #dfe4df; text-align: left; vertical-align: top; }
+              th { background: #f4f5ef; color: #536057; font-size: 9px; text-transform: uppercase; }
+              .number { text-align: right; white-space: nowrap; }
+              .total { display: flex; justify-content: flex-end; margin: 18px 0 30px; }
+              .total div { min-width: 230px; display: flex; justify-content: space-between; gap: 30px; padding: 12px 0; border-top: 2px solid #123c31; font-size: 16px; font-weight: 700; }
+              .note { margin-top: 26px; white-space: normal; }
+              footer { margin-top: 45px; padding-top: 14px; border-top: 1px solid #dfe4df; color: #59645d; font-size: 10px; }
+              @media print { .toolbar { display: none; } }
+            </style>
+          </head>
+          <body>
+            <div class="toolbar"><button onclick="window.print()">PDF drucken oder speichern</button></div>
+            <header>
+              <img src="${escapeHtml(logo)}" alt="Rechnungslogo">
+              <address class="sender"><strong>${escapeHtml(seller.name)}</strong>${escapeHtml(seller.street)}<br>${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)}<br>${escapeHtml(seller.country)}<br>${sellerContact}</address>
+            </header>
+            <section class="address-grid">
+              <div class="customer"><div class="eyebrow">Rechnung an</div><strong>${escapeHtml(customer.name)}</strong><address>${escapeHtml(customer.street)}<br>${escapeHtml(customer.postalCode)} ${escapeHtml(customer.city)}<br>${escapeHtml(customer.country)}${customer.email ? `<br>${escapeHtml(customer.email)}` : ""}</address></div>
+              <div class="invoice-meta"><h1>Rechnung</h1><p><strong>Rechnungsnummer:</strong> ${escapeHtml(invoice.invoice_number)}</p><p><strong>Rechnungsdatum:</strong> ${escapeHtml(formatInvoiceDate(invoice.invoice_date))}</p><p><strong>Leistungsdatum:</strong> ${escapeHtml(formatInvoiceDate(invoice.service_date))}</p><p><strong>Fällig am:</strong> ${escapeHtml(formatInvoiceDate(invoice.due_date))}</p></div>
+            </section>
+            <table>
+              <thead><tr><th>Beschreibung</th><th class="number">Menge</th><th class="number">Einzelpreis</th><th class="number">Betrag</th></tr></thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+            <div class="total"><div><span>Gesamtbetrag</span><span>${formatInvoiceAmount(invoice.total_cents)}</span></div></div>
+            <p>${escapeHtml(seller.taxNote)}</p>
+            <p>Bitte überweise den Rechnungsbetrag bis zum ${escapeHtml(formatInvoiceDate(invoice.due_date))}.</p>
+            ${bankDetails}
+            ${note}
+            <footer>${escapeHtml(seller.name)} · ${escapeHtml(seller.street)} · ${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)} · ${escapeHtml(seller.country)} · ${escapeHtml(seller.email)}</footer>
+          </body>
+          </html>`;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.addEventListener("load", () => {
+          window.setTimeout(() => printWindow.print(), 300);
+        }, { once: true });
+        printWindow.document.close();
+      }
+
+      function renderInvoiceList(invoices) {
+        const body = document.querySelector("#invoice-list-body");
+        body.replaceChildren();
+        if (invoices.length === 0) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 6;
+          cell.textContent = "Für diese Suche und Filter gibt es keine Rechnungen.";
+          row.append(cell);
+          body.append(row);
+          return;
+        }
+        for (const invoice of invoices) {
+          const row = document.createElement("tr");
+          for (const text of [
+            invoice.invoice_number,
+            formatInvoiceDate(invoice.invoice_date),
+            invoice.customer_snapshot.name,
+            formatInvoiceAmount(invoice.total_cents),
+            invoice.paid_at ? "Bezahlt" : "Offen",
+          ]) {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.append(cell);
+          }
+          const actionsCell = document.createElement("td");
+          const actions = document.createElement("div");
+          actions.className = "invoice-list-actions";
+          const printButton = document.createElement("button");
+          printButton.type = "button";
+          printButton.textContent = "PDF / Drucken";
+          printButton.addEventListener("click", () => printInvoice(invoice));
+          actions.append(printButton);
+
+          const paymentButton = document.createElement("button");
+          paymentButton.type = "button";
+          paymentButton.className = "secondary";
+          paymentButton.textContent = invoice.paid_at ? "Zahlung zurücknehmen" : "Als bezahlt markieren";
+          paymentButton.addEventListener("click", async () => {
+            setBusy(paymentButton, true);
+            try {
+              await callAdmin("set-invoice-paid", {
+                invoiceId: invoice.id,
+                paid: !invoice.paid_at,
+              });
+              await reloadInvoiceList();
+            } catch (error) {
+              setStatus(invoiceStatus, error.message, "error");
+              setBusy(paymentButton, false);
+            }
+          });
+          actions.append(paymentButton);
+          actionsCell.append(actions);
+          row.append(actionsCell);
+          body.append(row);
+        }
+      }
+
+      function addInvoiceItemRow() {
+        const row = document.createElement("tr");
+        row.className = "invoice-item-row";
+        const descriptionCell = document.createElement("td");
+        const description = document.createElement("input");
+        description.className = "item-description";
+        description.maxLength = 200;
+        description.placeholder = "Produkt oder Leistung";
+        description.required = true;
+        descriptionCell.append(description);
+        const quantityCell = document.createElement("td");
+        const quantity = document.createElement("input");
+        quantity.className = "item-quantity";
+        quantity.type = "number";
+        quantity.min = "0.001";
+        quantity.max = "10000";
+        quantity.step = "0.001";
+        quantity.value = "1";
+        quantity.required = true;
+        quantityCell.append(quantity);
+        const priceCell = document.createElement("td");
+        const price = document.createElement("input");
+        price.className = "item-price";
+        price.type = "number";
+        price.min = "0";
+        price.step = "0.01";
+        price.placeholder = "0,00";
+        price.required = true;
+        priceCell.append(price);
+        const removeCell = document.createElement("td");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary";
+        remove.textContent = "Entfernen";
+        remove.addEventListener("click", () => {
+          if (document.querySelectorAll("#invoice-items tr").length === 1) {
+            description.value = "";
+            price.value = "";
+          } else {
+            row.remove();
+          }
+        });
+        removeCell.append(remove);
+        row.append(descriptionCell, quantityCell, priceCell, removeCell);
+        document.querySelector("#invoice-items").append(row);
+      }
+
+      function readInvoiceLogo(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => {
+            if (typeof reader.result === "string") resolve(reader.result);
+            else reject(new Error("Das Rechnungslogo konnte nicht gelesen werden."));
+          }, { once: true });
+          reader.addEventListener("error", () => reject(new Error("Das Rechnungslogo konnte nicht gelesen werden.")), { once: true });
+          reader.readAsDataURL(file);
+        });
       }
 
       async function loadMetrics() {
@@ -684,6 +1239,213 @@
           setBusy(button, false);
         }
       });
+
+      document.querySelector("#invoice-profile-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-invoice-profile");
+        setBusy(button, true);
+        setStatus(invoiceProfileStatus, "Absenderdaten werden gespeichert …");
+        try {
+          await callAdmin("save-invoice-settings", {
+            sellerName: document.querySelector("#invoice-seller-name").value,
+            street: document.querySelector("#invoice-seller-street").value,
+            postalCode: document.querySelector("#invoice-seller-postal-code").value,
+            city: document.querySelector("#invoice-seller-city").value,
+            country: document.querySelector("#invoice-seller-country").value,
+            email: document.querySelector("#invoice-seller-email").value,
+            taxIdentifier: document.querySelector("#invoice-seller-tax-id").value,
+            phone: document.querySelector("#invoice-seller-phone").value,
+            invoicePrefix: document.querySelector("#invoice-prefix").value,
+            bankAccountHolder: document.querySelector("#invoice-bank-account-holder").value,
+            bankIban: document.querySelector("#invoice-bank-iban").value,
+            bankBic: document.querySelector("#invoice-bank-bic").value,
+            invoiceLogoDataUrl,
+          });
+          setStatus(invoiceProfileStatus, "Absenderdaten gespeichert. Diese Angaben erscheinen auf neuen Rechnungen.", "success");
+        } catch (error) {
+          setStatus(invoiceProfileStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#invoice-logo-file").addEventListener("change", async (event) => {
+        const file = event.currentTarget.files[0];
+        if (!file) return;
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 512 * 1024) {
+          event.currentTarget.value = "";
+          setStatus(invoiceProfileStatus, "Bitte ein PNG-, JPG- oder WebP-Logo mit höchstens 512 KB auswählen.", "error");
+          return;
+        }
+        try {
+          invoiceLogoDataUrl = await readInvoiceLogo(file);
+          document.querySelector("#invoice-logo-preview").src = invoiceLogoDataUrl;
+          setStatus(invoiceProfileStatus, "Logo ausgewählt. Speichere die Absenderdaten, damit es für neue Rechnungen verwendet wird.");
+        } catch (error) {
+          setStatus(invoiceProfileStatus, error.message, "error");
+        }
+      });
+
+      document.querySelector("#reset-invoice-logo").addEventListener("click", () => {
+        invoiceLogoDataUrl = null;
+        document.querySelector("#invoice-logo-file").value = "";
+        document.querySelector("#invoice-logo-preview").src = "./assets/wertweit-logo.png";
+        setStatus(invoiceProfileStatus, "Das Wertweit-Logo ist ausgewählt. Speichere die Absenderdaten, um es zu übernehmen.");
+      });
+
+      document.querySelector("#invoice-customer-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-invoice-customer");
+        setBusy(button, true);
+        setStatus(invoiceStatus, "Kundenkonto wird gespeichert …");
+        try {
+          const { customer } = await callAdmin("save-invoice-customer", {
+            name: document.querySelector("#invoice-customer-name").value,
+            email: document.querySelector("#invoice-customer-email").value,
+            street: document.querySelector("#invoice-customer-street").value,
+            postalCode: document.querySelector("#invoice-customer-postal-code").value,
+            city: document.querySelector("#invoice-customer-city").value,
+            country: document.querySelector("#invoice-customer-country").value,
+          });
+          selectedInvoiceCustomer = customer;
+          invoiceCustomers.push(customer);
+          renderInvoiceCustomerOptions(customer.id);
+          const customerListLoaded = await loadInvoiceCustomers();
+          document.querySelector("#invoice-customer-form").reset();
+          document.querySelector("#invoice-customer-country").value = "Deutschland";
+          document.querySelector(".invoice-customer-form").open = false;
+          if (customerListLoaded) {
+            setStatus(invoiceStatus, `Kundenkonto „${customer.name}“ wurde gespeichert und ausgewählt.`, "success");
+          } else {
+            setStatus(invoiceStatus, `Kundenkonto „${customer.name}“ wurde gespeichert; die Kundenliste konnte nicht neu geladen werden.`, "error");
+          }
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#invoice-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#create-invoice");
+        const items = [...document.querySelectorAll("#invoice-items tr")].map((row) => ({
+          description: row.querySelector(".item-description").value,
+          quantity: row.querySelector(".item-quantity").value,
+          unitPrice: row.querySelector(".item-price").value,
+        }));
+        const printWindow = window.open("about:blank", "_blank");
+        setBusy(button, true);
+        setStatus(invoiceStatus, "Rechnung wird gespeichert …");
+        try {
+          const { invoice } = await callAdmin("create-invoice", {
+            customerId: document.querySelector("#invoice-customer").value,
+            invoiceDate: document.querySelector("#invoice-date").value,
+            serviceDate: document.querySelector("#invoice-service-date").value,
+            dueDate: document.querySelector("#invoice-due-date").value,
+            note: document.querySelector("#invoice-note").value,
+            items,
+          });
+          invoicePage = 1;
+          document.querySelector("#invoice-search").value = "";
+          document.querySelector("#invoice-status-filter").value = "all";
+          document.querySelector("#invoice-from").value = "";
+          document.querySelector("#invoice-to").value = "";
+          const invoiceListLoaded = await reloadInvoiceList();
+          if (printWindow) {
+            printInvoice(invoice, printWindow);
+            if (invoiceListLoaded) {
+              setStatus(invoiceStatus, `Rechnung ${invoice.invoice_number} wurde erstellt. Im Druckdialog kannst du „Als PDF sichern“ auswählen.`, "success");
+            } else {
+              setStatus(invoiceStatus, `Rechnung ${invoice.invoice_number} wurde erstellt, aber die Liste konnte nicht aktualisiert werden. Nutze PDF / Drucken nach erneutem Laden.`, "error");
+            }
+          } else if (invoiceListLoaded) {
+            setStatus(invoiceStatus, `Rechnung ${invoice.invoice_number} wurde erstellt. Für PDF / Drucken erlaube Pop-ups für diese Admin-Seite und nutze danach die Aktion in der Rechnungsliste.`, "error");
+          }
+          document.querySelector("#invoice-items").replaceChildren();
+          addInvoiceItemRow();
+          document.querySelector("#invoice-note").value = "";
+        } catch (error) {
+          printWindow?.close();
+          setStatus(invoiceStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#add-invoice-item").addEventListener("click", addInvoiceItemRow);
+      document.querySelector("#refresh-invoices").addEventListener("click", loadInvoiceWorkspace);
+      document.querySelector("#invoice-customer").addEventListener("change", (event) => {
+        selectedInvoiceCustomer = invoiceCustomers.find((customer) => customer.id === event.currentTarget.value) ??
+          (selectedInvoiceCustomer?.id === event.currentTarget.value ? selectedInvoiceCustomer : null);
+      });
+      document.querySelector("#filter-invoices").addEventListener("click", () => {
+        invoicePage = 1;
+        reloadInvoiceList();
+      });
+      document.querySelector("#invoice-previous-page").addEventListener("click", () => {
+        invoicePage = Math.max(1, invoicePage - 1);
+        reloadInvoiceList();
+      });
+      document.querySelector("#invoice-next-page").addEventListener("click", () => {
+        invoicePage += 1;
+        reloadInvoiceList();
+      });
+      document.querySelector("#filter-customers").addEventListener("click", () => {
+        customerPage = 1;
+        loadInvoiceCustomers();
+      });
+      document.querySelector("#customer-search").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          customerPage = 1;
+          loadInvoiceCustomers();
+        }
+      });
+      document.querySelector("#customer-previous-page").addEventListener("click", () => {
+        customerPage = Math.max(1, customerPage - 1);
+        loadInvoiceCustomers();
+      });
+      document.querySelector("#customer-next-page").addEventListener("click", () => {
+        customerPage += 1;
+        loadInvoiceCustomers();
+      });
+      document.querySelector("#invoice-customer-edit-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-customer-edit");
+        setBusy(button, true);
+        setStatus(document.querySelector("#edit-customer-status"), "Kundenkonto wird aktualisiert …");
+        try {
+          const { customer } = await callAdmin("update-invoice-customer", {
+            customerId: document.querySelector("#edit-customer-id").value,
+            name: document.querySelector("#edit-customer-name").value,
+            email: document.querySelector("#edit-customer-email").value,
+            street: document.querySelector("#edit-customer-street").value,
+            postalCode: document.querySelector("#edit-customer-postal-code").value,
+            city: document.querySelector("#edit-customer-city").value,
+            country: document.querySelector("#edit-customer-country").value,
+          });
+          const index = invoiceCustomers.findIndex((entry) => entry.id === customer.id);
+          if (index >= 0) invoiceCustomers[index] = customer;
+          if (selectedInvoiceCustomer?.id === customer.id) selectedInvoiceCustomer = customer;
+          renderInvoiceCustomerOptions(customer.id);
+          const customerListLoaded = await loadInvoiceCustomers();
+          document.querySelector("#invoice-customer-dialog").close();
+          if (customerListLoaded) {
+            setStatus(invoiceStatus, "Kundenkonto aktualisiert. Bereits erstellte Rechnungen bleiben unverändert.", "success");
+          } else {
+            setStatus(invoiceStatus, "Kundenkonto aktualisiert, aber die Kundenliste konnte nicht neu geladen werden.", "error");
+          }
+        } catch (error) {
+          setStatus(document.querySelector("#edit-customer-status"), error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+      document.querySelector("#cancel-customer-edit").addEventListener("click", () => {
+        document.querySelector("#invoice-customer-dialog").close();
+      });
+      addInvoiceItemRow();
 
       document.querySelector("#refresh-metrics").addEventListener("click", loadMetrics);
       document.querySelector("#refresh-users").addEventListener("click", loadUsers);

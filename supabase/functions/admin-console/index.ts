@@ -20,6 +20,51 @@ function respond(body: unknown, status = 200) {
   });
 }
 
+function invoiceText(value: unknown, maximumLength: number, required = true): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (text.length > maximumLength || (required && text.length === 0)) return null;
+  return text;
+}
+
+function invoiceDate(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.valueOf()) || date.toISOString().slice(0, 10) !== value ? null : value;
+}
+
+function invoiceAmountCents(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,9})(?:\.(\d{1,2}))?$/);
+  if (!match) return null;
+  const cents = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  return Number.isSafeInteger(cents) && cents <= 100_000_000 ? cents : null;
+}
+
+function invoiceQuantityMilli(value: unknown): { quantity: string; milli: number } | null {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,5})(?:\.(\d{1,3}))?$/);
+  if (!match) return null;
+  const milli = Number(match[1]) * 1000 + Number((match[2] ?? "").padEnd(3, "0"));
+  if (!Number.isSafeInteger(milli) || milli < 1 || milli > 10_000_000) return null;
+  return { quantity: value.trim(), milli };
+}
+
+function isValidIban(value: string): boolean {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(value)) return false;
+  const rearranged = value.slice(4) + value.slice(0, 4);
+  let remainder = 0;
+  for (const character of rearranged) {
+    const digits = /[A-Z]/.test(character)
+      ? String(character.charCodeAt(0) - 55)
+      : character;
+    for (const digit of digits) {
+      remainder = (remainder * 10 + Number(digit)) % 97;
+    }
+  }
+  return remainder === 1;
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -707,6 +752,310 @@ Deno.serve(async (request) => {
     }
     if (!emailSent) console.error("Support reply saved but email notification failed", emailError);
     return respond({ sent: true, emailSent, emailError }, 201);
+  }
+
+  if (payload.action === "invoice-settings") {
+    const { data, error } = await supabase
+      .from("invoice_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+    if (error) {
+      console.error("Could not load invoice settings", error.message);
+      return respond({ error: "Invoice settings could not be loaded" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "save-invoice-settings") {
+    const sellerName = invoiceText(payload.sellerName, 160);
+    const street = invoiceText(payload.street, 200);
+    const postalCode = invoiceText(payload.postalCode, 24);
+    const city = invoiceText(payload.city, 120);
+    const country = invoiceText(payload.country, 80);
+    const email = invoiceText(payload.email, 254);
+    const taxIdentifier = invoiceText(payload.taxIdentifier, 80);
+    const phone = invoiceText(payload.phone, 80, false);
+    const bankAccountHolder = invoiceText(payload.bankAccountHolder ?? "", 160, false);
+    const bankIban = invoiceText(payload.bankIban ?? "", 34, false);
+    const bankBic = invoiceText(payload.bankBic ?? "", 11, false);
+    const prefix = invoiceText(payload.invoicePrefix, 8);
+    const logo = payload.invoiceLogoDataUrl ?? null;
+    if (!sellerName || !street || !postalCode || !city || !country || !email ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !taxIdentifier ||
+        phone === null || bankAccountHolder === null || bankIban === null || bankBic === null ||
+        !prefix || !/^[A-Z0-9]{2,8}$/.test(prefix)) {
+      return respond({ error: "Complete the seller details with a valid email and a 2–8 character invoice prefix" }, 400);
+    }
+    const normalizedIban = bankIban.replace(/\s/g, "").toUpperCase();
+    const normalizedBic = bankBic.toUpperCase();
+    if ((normalizedIban && !isValidIban(normalizedIban)) ||
+        (normalizedBic && !/^[A-Z0-9]{8}(?:[A-Z0-9]{3})?$/.test(normalizedBic)) ||
+        (!!normalizedBic && !normalizedIban)) {
+      return respond({ error: "Check the IBAN and BIC. A BIC can only be saved together with a valid IBAN." }, 400);
+    }
+    if (logo !== null && (typeof logo !== "string" || logo.length > 700_000 ||
+        !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(logo))) {
+      return respond({ error: "The invoice logo must be a PNG, JPG or WebP image under 512 KB" }, 400);
+    }
+
+    const { data, error } = await supabase
+      .from("invoice_settings")
+      .update({
+        seller_name: sellerName,
+        street,
+        postal_code: postalCode,
+        city,
+        country,
+        email,
+        tax_identifier: taxIdentifier,
+        phone,
+        bank_account_holder: bankAccountHolder,
+        bank_iban: normalizedIban,
+        bank_bic: normalizedBic,
+        invoice_prefix: prefix,
+        invoice_logo_data_url: logo,
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      })
+      .eq("id", 1)
+      .select("*")
+      .single();
+    if (error) {
+      console.error("Could not save invoice settings", error.message);
+      return respond({ error: "Invoice settings could not be saved" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "list-invoice-customers") {
+    const page = Number(payload.page ?? 1);
+    const perPage = Number(payload.perPage ?? 25);
+    const search = invoiceText(payload.search ?? "", 160, false);
+    if (!Number.isInteger(page) || page < 1 || page > 1_000_000 ||
+        !Number.isInteger(perPage) || perPage < 1 || perPage > 100 || search === null) {
+      return respond({ error: "Invalid customer search or pagination values" }, 400);
+    }
+
+    let customerQuery = supabase
+      .from("invoice_customers")
+      .select("id, name, email, street, postal_code, city, country, created_at", { count: "exact" })
+      .order("name", { ascending: true })
+      .range((page - 1) * perPage, page * perPage - 1);
+    if (search) customerQuery = customerQuery.ilike("name", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
+    const { data, count, error } = await customerQuery;
+    if (error) {
+      console.error("Could not list invoice customers", error.message);
+      return respond({ error: "Invoice customers could not be loaded" }, 502);
+    }
+    return respond({ customers: data ?? [], page, perPage, total: count ?? 0 });
+  }
+
+  if (payload.action === "save-invoice-customer" || payload.action === "update-invoice-customer") {
+    const name = invoiceText(payload.name, 160);
+    const email = invoiceText(payload.email, 254, false);
+    const street = invoiceText(payload.street, 200);
+    const postalCode = invoiceText(payload.postalCode, 24);
+    const city = invoiceText(payload.city, 120);
+    const country = invoiceText(payload.country, 80);
+    if (!name || email === null || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
+        !street || !postalCode || !city || !country) {
+      return respond({ error: "Enter a customer name, address and valid email address" }, 400);
+    }
+
+    const customerValues = {
+      name,
+      email,
+      street,
+      postal_code: postalCode,
+      city,
+      country,
+      updated_at: new Date().toISOString(),
+    };
+    let customerId: string | null = null;
+    if (payload.action === "update-invoice-customer") {
+      if (typeof payload.customerId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.customerId)) {
+        return respond({ error: "Invalid invoice customer" }, 400);
+      }
+      customerId = payload.customerId;
+    }
+    const result = customerId
+      ? await supabase
+        .from("invoice_customers")
+        .update(customerValues)
+        .eq("id", customerId)
+        .select("id, name, email, street, postal_code, city, country, created_at")
+        .maybeSingle()
+      : await supabase
+        .from("invoice_customers")
+        .insert(customerValues)
+        .select("id, name, email, street, postal_code, city, country, created_at")
+        .maybeSingle();
+    const { data, error } = result;
+    if (error) {
+      console.error("Could not save invoice customer", error.message);
+      return respond({ error: "Invoice customer could not be saved" }, 502);
+    }
+    if (!data) return respond({ error: "Invoice customer could not be found" }, 404);
+    return respond({ customer: data }, payload.action === "save-invoice-customer" ? 201 : 200);
+  }
+
+  if (payload.action === "list-invoices") {
+    const page = Number(payload.page ?? 1);
+    const perPage = Number(payload.perPage ?? 25);
+    const search = invoiceText(payload.search ?? "", 160, false);
+    const status = payload.status ?? "all";
+    const from = payload.from ? invoiceDate(payload.from) : null;
+    const to = payload.to ? invoiceDate(payload.to) : null;
+    if (!Number.isInteger(page) || page < 1 || page > 1_000_000 ||
+        !Number.isInteger(perPage) || perPage < 1 || perPage > 100 || search === null ||
+        !["all", "open", "paid"].includes(String(status)) ||
+        (payload.from && !from) || (payload.to && !to) || (from && to && from > to)) {
+      return respond({ error: "Check the invoice search, status, date range and pagination values" }, 400);
+    }
+    const { data, error } = await supabase.rpc("admin_list_invoices", {
+      p_search: search,
+      p_status: status,
+      p_from: from,
+      p_to: to,
+      p_page: page,
+      p_per_page: perPage,
+    });
+    if (error) {
+      console.error("Could not list invoices", error.message);
+      return respond({ error: "Invoices could not be loaded" }, 502);
+    }
+    return respond({ ...data, page, perPage });
+  }
+
+  if (payload.action === "create-invoice") {
+    const customerId = payload.customerId;
+    const date = invoiceDate(payload.invoiceDate);
+    const serviceDate = invoiceDate(payload.serviceDate);
+    const dueDate = invoiceDate(payload.dueDate);
+    const note = invoiceText(payload.note, 2000, false);
+    if (typeof customerId !== "string" || !/^[0-9a-f-]{36}$/i.test(customerId) ||
+        !date || !serviceDate || !dueDate || dueDate < date || note === null ||
+        !Array.isArray(payload.items) || payload.items.length < 1 || payload.items.length > 50) {
+      return respond({ error: "Check the customer, dates and invoice items. A due date cannot be before the invoice date." }, 400);
+    }
+
+    const { data: customer, error: customerError } = await supabase
+      .from("invoice_customers")
+      .select("id, name, email, street, postal_code, city, country")
+      .eq("id", customerId)
+      .single();
+    if (customerError || !customer) {
+      if (customerError) console.error("Could not load invoice customer", customerError.message);
+      return respond({ error: "Invoice customer could not be found" }, 404);
+    }
+    const { data: settings, error: settingsError } = await supabase
+      .from("invoice_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+    if (settingsError || !settings) {
+      if (settingsError) console.error("Could not load seller details for invoice", settingsError.message);
+      return respond({ error: "Save the seller details before creating an invoice" }, 400);
+    }
+    if (!settings.seller_name || !settings.street || !settings.postal_code || !settings.city ||
+        !settings.country || !settings.email || !settings.tax_identifier) {
+      return respond({ error: "Complete and save all required seller details before creating an invoice" }, 400);
+    }
+
+    const lineItems: {
+      description: string;
+      quantity: string;
+      unit_price_cents: number;
+      line_total_cents: number;
+    }[] = [];
+    let totalCents = 0;
+    for (const item of payload.items) {
+      if (typeof item !== "object" || item === null) {
+        return respond({ error: "Every invoice item needs a description, quantity and unit price" }, 400);
+      }
+      const description = invoiceText(item.description, 200);
+      const quantity = invoiceQuantityMilli(item.quantity);
+      const unitPriceCents = invoiceAmountCents(item.unitPrice);
+      if (!description || !quantity || unitPriceCents === null) {
+        return respond({ error: "Check each invoice item's description, quantity and unit price" }, 400);
+      }
+      const lineTotalCents = Math.round(unitPriceCents * quantity.milli / 1000);
+      totalCents += lineTotalCents;
+      if (totalCents > 10_000_000_000) {
+        return respond({ error: "The invoice total exceeds the maximum supported amount" }, 400);
+      }
+      lineItems.push({
+        description,
+        quantity: quantity.quantity,
+        unit_price_cents: unitPriceCents,
+        line_total_cents: lineTotalCents,
+      });
+    }
+    if (totalCents < 1) {
+      return respond({ error: "The invoice total must be greater than zero" }, 400);
+    }
+
+    const sellerSnapshot = {
+      name: settings.seller_name,
+      street: settings.street,
+      postalCode: settings.postal_code,
+      city: settings.city,
+      country: settings.country,
+      email: settings.email,
+      taxIdentifier: settings.tax_identifier,
+      phone: settings.phone,
+      bankAccountHolder: settings.bank_account_holder,
+      bankIban: settings.bank_iban,
+      bankBic: settings.bank_bic,
+      logoDataUrl: settings.invoice_logo_data_url,
+      taxNote: "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
+    };
+    const customerSnapshot = {
+      name: customer.name,
+      email: customer.email,
+      street: customer.street,
+      postalCode: customer.postal_code,
+      city: customer.city,
+      country: customer.country,
+    };
+    const { data: invoice, error } = await supabase.rpc("admin_create_invoice", {
+      p_prefix: settings.invoice_prefix,
+      p_customer_id: customer.id,
+      p_invoice_date: date,
+      p_service_date: serviceDate,
+      p_due_date: dueDate,
+      p_seller_snapshot: sellerSnapshot,
+      p_customer_snapshot: customerSnapshot,
+      p_line_items: lineItems,
+      p_total_cents: totalCents,
+      p_note: note,
+      p_created_by: authData.user.id,
+    });
+    if (error || !invoice) {
+      console.error("Could not create invoice", error?.message ?? "No invoice returned");
+      return respond({ error: "Invoice could not be created" }, 502);
+    }
+    return respond({ invoice }, 201);
+  }
+
+  if (payload.action === "set-invoice-paid") {
+    if (typeof payload.invoiceId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.invoiceId) ||
+        typeof payload.paid !== "boolean") {
+      return respond({ error: "Invalid invoice payment status" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("invoice_records")
+      .update({ paid_at: payload.paid ? new Date().toISOString() : null })
+      .eq("id", payload.invoiceId)
+      .select("id, paid_at")
+      .maybeSingle();
+    if (error) {
+      console.error("Could not update invoice payment status", error.message);
+      return respond({ error: "Invoice payment status could not be updated" }, 502);
+    }
+    if (!data) return respond({ error: "Invoice could not be found" }, 404);
+    return respond({ invoice: data });
   }
 
   if (payload.action === "get-settings") {
