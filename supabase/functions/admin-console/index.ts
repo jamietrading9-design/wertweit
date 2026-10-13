@@ -246,17 +246,47 @@ Deno.serve(async (request) => {
   if (payload.action === "list-users") {
     const page = Number(payload.page ?? 1);
     const perPage = Number(payload.perPage ?? 50);
-    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(perPage) || perPage < 1 || perPage > 100) {
+    const search = typeof payload.search === "string" ? payload.search.trim().toLowerCase() : "";
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(perPage) || perPage < 1 ||
+        perPage > 100 || search.length > 160) {
       return respond({ error: "Invalid pagination values" }, 400);
     }
 
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) {
-      console.error("Could not list accounts", error.message);
-      return respond({ error: "Accounts could not be loaded" }, 502);
+    let users;
+    let userTotal: number;
+    if (search) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (error) {
+        console.error("Could not search accounts", error.message);
+        return respond({ error: "Accounts could not be searched" }, 502);
+      }
+      const allUsers = [...data.users];
+      const totalPages = Math.ceil((data.total ?? data.users.length) / 1000);
+      for (let searchPage = 2; searchPage <= totalPages; searchPage += 1) {
+        const { data: nextPage, error: nextPageError } = await supabase.auth.admin.listUsers({
+          page: searchPage,
+          perPage: 1000,
+        });
+        if (nextPageError) {
+          console.error("Could not search all account pages", nextPageError.message);
+          return respond({ error: "Account search could not be completed" }, 502);
+        }
+        allUsers.push(...nextPage.users);
+      }
+      const matchingUsers = allUsers.filter((user) => (user.email ?? "").toLowerCase().includes(search));
+      userTotal = matchingUsers.length;
+      users = matchingUsers.slice((page - 1) * perPage, page * perPage);
+    } else {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        console.error("Could not list accounts", error.message);
+        return respond({ error: "Accounts could not be loaded" }, 502);
+      }
+      users = data.users;
+      userTotal = data.total ?? users.length;
     }
 
-    const userIds = data.users.map((user) => user.id);
+    const userIds = users.map((user) => user.id);
     const { data: accessRows, error: accessError } = await supabase
       .from("app_user_access")
       .select("user_id, blocked, pro_until")
@@ -268,7 +298,7 @@ Deno.serve(async (request) => {
     const accessByUser = new Map((accessRows ?? []).map((access) => [access.user_id, access]));
 
     return respond({
-      users: data.users.map((user) => ({
+      users: users.map((user) => ({
         id: user.id,
         email: user.email ?? "",
         createdAt: user.created_at,
@@ -279,7 +309,119 @@ Deno.serve(async (request) => {
       })),
       page,
       perPage,
-      total: data.total,
+      total: userTotal,
+    });
+  }
+
+  if (payload.action === "get-user-profile") {
+    if (typeof payload.userId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.userId)) {
+      return respond({ error: "A valid account ID is required" }, 400);
+    }
+    const { data: account, error: accountError } = await supabase.auth.admin.getUserById(payload.userId);
+    if (accountError) {
+      console.error("Could not load account profile", accountError.message);
+      return respond({ error: "Account profile could not be loaded" }, 502);
+    }
+    if (!account.user) return respond({ error: "Account not found" }, 404);
+    const user = account.user;
+    const [accessResult, opensResult, ticketsResult, notesResult, preferenceResult, invoiceCustomersResult] =
+      await Promise.all([
+        supabase.from("app_user_access").select("blocked, pro_until, updated_at").eq("user_id", user.id).maybeSingle(),
+        supabase.from("app_open_events").select("opened_at", { count: "exact" }).eq("user_id", user.id)
+          .order("opened_at", { ascending: false }).limit(30),
+        supabase.from("support_threads")
+          .select("id, subject, support_category, support_priority, status, created_at, updated_at, claimed_by, claimed_at")
+          .eq("user_id", user.id).order("updated_at", { ascending: false }).limit(100),
+        supabase.from("admin_private_notes")
+          .select("id, label, body, created_at, updated_at, created_by, updated_by")
+          .eq("user_id", user.id).is("thread_id", null).order("created_at", { ascending: false }),
+        supabase.from("email_update_preferences").select("subscribed, subscribed_at")
+          .eq("user_id", user.id).maybeSingle(),
+        user.email
+          ? supabase.from("invoice_customers").select("id, name, email")
+            .ilike("email", user.email.replace(/[\\%_]/g, "\\$&"))
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+    const queryErrors = [
+      accessResult.error,
+      opensResult.error,
+      ticketsResult.error,
+      notesResult.error,
+      preferenceResult.error,
+      invoiceCustomersResult.error,
+    ].filter(Boolean);
+    if (queryErrors.length) {
+      console.error("Could not load all account profile details", queryErrors.map((error) => error?.message));
+      return respond({ error: "Account details could not be loaded" }, 502);
+    }
+
+    const tickets = ticketsResult.data ?? [];
+    const ticketIds = tickets.map((ticket) => ticket.id);
+    let messages: {
+      id: string;
+      thread_id: string;
+      sender_id: string | null;
+      sender_is_admin: boolean;
+      body: string;
+      created_at: string;
+    }[] = [];
+    let ticketNotes = [];
+    if (ticketIds.length) {
+      const [messagesResult, ticketNotesResult] = await Promise.all([
+        supabase.from("support_messages")
+          .select("id, thread_id, sender_id, sender_is_admin, body, created_at")
+          .in("thread_id", ticketIds).order("created_at", { ascending: true }),
+        supabase.from("admin_private_notes").select("id, thread_id, label, body, created_at, updated_at, created_by, updated_by")
+          .in("thread_id", ticketIds).is("user_id", null).order("created_at", { ascending: false }),
+      ]);
+      if (messagesResult.error || ticketNotesResult.error) {
+        console.error("Could not load account support history", messagesResult.error?.message ?? ticketNotesResult.error?.message);
+        return respond({ error: "Account support history could not be loaded" }, 502);
+      }
+      messages = messagesResult.data ?? [];
+      ticketNotes = ticketNotesResult.data ?? [];
+    }
+
+    const invoiceCustomerIds = (invoiceCustomersResult.data ?? []).map((customer) => customer.id);
+    let invoices = [];
+    if (invoiceCustomerIds.length) {
+      const { data, error } = await supabase.from("invoice_records")
+        .select("id, invoice_number, invoice_date, total_cents, paid_at")
+        .in("customer_id", invoiceCustomerIds).order("created_at", { ascending: false }).limit(100);
+      if (error) {
+        console.error("Could not load account invoices", error.message);
+        return respond({ error: "Account invoices could not be loaded" }, 502);
+      }
+      invoices = data ?? [];
+    }
+
+    return respond({
+      profile: {
+        id: user.id,
+        email: user.email ?? "",
+        name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? "",
+        createdAt: user.created_at,
+        lastSignInAt: user.last_sign_in_at,
+        emailConfirmedAt: user.email_confirmed_at,
+        isAdmin: user.app_metadata?.role === "admin",
+        blocked: accessResult.data?.blocked ?? false,
+        adminProUntil: accessResult.data?.pro_until ?? null,
+        accessUpdatedAt: accessResult.data?.updated_at ?? null,
+        emailUpdatesSubscribed: preferenceResult.data?.subscribed ?? false,
+        emailUpdatesSubscribedAt: preferenceResult.data?.subscribed_at ?? null,
+        appOpenCount: opensResult.count ?? 0,
+        recentAppOpens: opensResult.data ?? [],
+        privateNotes: notesResult.data ?? [],
+        tickets: tickets.map((ticket) => ({
+          ...ticket,
+          categoryLabel: supportCategoryLabel(ticket.support_category),
+          priorityLabel: supportPriorityLabel(ticket.support_priority),
+          messages: messages.filter((message) => message.thread_id === ticket.id),
+          internalNotes: ticketNotes.filter((note) => note.thread_id === ticket.id),
+        })),
+        invoices,
+        invoicesMatchedByEmail: Boolean(user.email && invoiceCustomersResult.data?.length),
+      },
     });
   }
 
@@ -573,6 +715,16 @@ Deno.serve(async (request) => {
       console.error("Could not load support inbox details", messagesError.message);
       return respond({ error: "Support inbox could not be loaded" }, 502);
     }
+    const { data: internalNotes, error: notesError } = await supabase
+      .from("admin_private_notes")
+      .select("id, thread_id, label, body, created_at, updated_at, created_by, updated_by")
+      .in("thread_id", threadIds)
+      .is("user_id", null)
+      .order("created_at", { ascending: false });
+    if (notesError) {
+      console.error("Could not load internal support notes", notesError.message);
+      return respond({ error: "Internal support notes could not be loaded" }, 502);
+    }
     if (claimedUsers.some((user) => user.error)) {
       console.error("Could not load support ticket assignees", claimedUsers.filter((user) => user.error).map((user) => user.error));
       return respond({ error: "Support ticket assignees could not be loaded" }, 502);
@@ -587,8 +739,87 @@ Deno.serve(async (request) => {
         priorityLabel: supportPriorityLabel(thread.support_priority),
         priorityEmoji: supportPriorityEmoji(thread.support_priority),
         messages: (messages ?? []).filter((message) => message.thread_id === thread.id),
+        internalNotes: (internalNotes ?? []).filter((note) => note.thread_id === thread.id),
       })),
     });
+  }
+
+  if ([
+    "list-private-admin-notes",
+    "save-private-admin-note",
+    "delete-private-admin-note",
+  ].includes(String(payload.action))) {
+    const targetType = payload.targetType;
+    const targetId = payload.targetId;
+    if (!["user", "ticket"].includes(String(targetType)) ||
+        typeof targetId !== "string" || !/^[0-9a-f-]{36}$/i.test(targetId)) {
+      return respond({ error: "A valid person or ticket is required" }, 400);
+    }
+    const targetFilter = targetType === "user"
+      ? { user_id: targetId, thread_id: null }
+      : { user_id: null, thread_id: targetId };
+    const targetColumn = targetType === "user" ? "user_id" : "thread_id";
+    const otherColumn = targetType === "user" ? "thread_id" : "user_id";
+    const noteSelection = "id, user_id, thread_id, label, body, created_at, updated_at, created_by, updated_by";
+
+    if (payload.action === "list-private-admin-notes") {
+      let query = supabase.from("admin_private_notes").select(noteSelection)
+        .eq(targetColumn, targetId).order("created_at", { ascending: false });
+      query = query.is(otherColumn, null);
+      const { data, error } = await query;
+      if (error) {
+        console.error("Could not list internal notes", error.message);
+        return respond({ error: "Internal notes could not be loaded" }, 502);
+      }
+      return respond({ notes: data ?? [] });
+    }
+
+    if (payload.action === "save-private-admin-note") {
+      const label = invoiceText(payload.label ?? "Interne Notiz", 80);
+      const body = typeof payload.body === "string" ? payload.body.trim() : "";
+      if (!label || body.length < 1 || body.length > 4000) {
+        return respond({ error: "Enter a note label and text (up to 4,000 characters)" }, 400);
+      }
+      const values = {
+        ...targetFilter,
+        label,
+        body,
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      };
+      const noteId = payload.noteId;
+      if (noteId !== undefined &&
+          (typeof noteId !== "string" || !/^[0-9a-f-]{36}$/i.test(noteId))) {
+        return respond({ error: "Invalid internal note ID" }, 400);
+      }
+      const result = typeof noteId === "string"
+        ? await supabase.from("admin_private_notes").update(values)
+          .eq("id", noteId).eq(targetColumn, targetId).is(otherColumn, null)
+          .select(noteSelection).maybeSingle()
+        : await supabase.from("admin_private_notes").insert({
+          ...values,
+          created_by: authData.user.id,
+        }).select(noteSelection).maybeSingle();
+      if (result.error) {
+        console.error("Could not save internal note", result.error.message);
+        return respond({ error: "Internal note could not be saved" }, 502);
+      }
+      if (!result.data) return respond({ error: "Internal note or target could not be found" }, 404);
+      return respond({ note: result.data }, typeof noteId === "string" ? 200 : 201);
+    }
+
+    if (typeof payload.noteId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.noteId)) {
+      return respond({ error: "A valid internal note ID is required" }, 400);
+    }
+    const { data, error } = await supabase.from("admin_private_notes").delete()
+      .eq("id", payload.noteId).eq(targetColumn, targetId).is(otherColumn, null)
+      .select("id").maybeSingle();
+    if (error) {
+      console.error("Could not delete internal note", error.message);
+      return respond({ error: "Internal note could not be deleted" }, 502);
+    }
+    if (!data) return respond({ error: "Internal note could not be found" }, 404);
+    return respond({ deleted: true });
   }
 
   if (payload.action === "claim-support") {
@@ -832,23 +1063,40 @@ Deno.serve(async (request) => {
     const page = Number(payload.page ?? 1);
     const perPage = Number(payload.perPage ?? 25);
     const search = invoiceText(payload.search ?? "", 160, false);
+    const tier = payload.tier ?? "all";
     if (!Number.isInteger(page) || page < 1 || page > 1_000_000 ||
-        !Number.isInteger(perPage) || perPage < 1 || perPage > 100 || search === null) {
+        !Number.isInteger(perPage) || perPage < 1 || perPage > 100 || search === null ||
+        !["all", "pro", "standard"].includes(String(tier))) {
       return respond({ error: "Invalid customer search or pagination values" }, 400);
     }
 
     let customerQuery = supabase
       .from("invoice_customers")
-      .select("id, name, email, street, postal_code, city, country, created_at", { count: "exact" })
+      .select("id, name, email, street, postal_code, city, country, pro_customer, created_at", { count: "exact" })
       .order("name", { ascending: true })
       .range((page - 1) * perPage, page * perPage - 1);
     if (search) customerQuery = customerQuery.ilike("name", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
+    if (tier === "pro") customerQuery = customerQuery.eq("pro_customer", true);
+    if (tier === "standard") customerQuery = customerQuery.eq("pro_customer", false);
     const { data, count, error } = await customerQuery;
     if (error) {
       console.error("Could not list invoice customers", error.message);
       return respond({ error: "Invoice customers could not be loaded" }, 502);
     }
     return respond({ customers: data ?? [], page, perPage, total: count ?? 0 });
+  }
+
+  if (payload.action === "list-invoice-customer-options") {
+    const { data, error } = await supabase
+      .from("invoice_customers")
+      .select("id, name, email, street, postal_code, city, country, pro_customer")
+      .order("name", { ascending: true })
+      .limit(1000);
+    if (error) {
+      console.error("Could not list invoice customer options", error.message);
+      return respond({ error: "Invoice customer options could not be loaded" }, 502);
+    }
+    return respond({ customers: data ?? [] });
   }
 
   if (payload.action === "save-invoice-customer" || payload.action === "update-invoice-customer") {
@@ -858,8 +1106,9 @@ Deno.serve(async (request) => {
     const postalCode = invoiceText(payload.postalCode, 24);
     const city = invoiceText(payload.city, 120);
     const country = invoiceText(payload.country, 80);
+    const proCustomer = payload.proCustomer;
     if (!name || email === null || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
-        !street || !postalCode || !city || !country) {
+        !street || !postalCode || !city || !country || typeof proCustomer !== "boolean") {
       return respond({ error: "Enter a customer name, address and valid email address" }, 400);
     }
 
@@ -870,6 +1119,7 @@ Deno.serve(async (request) => {
       postal_code: postalCode,
       city,
       country,
+      pro_customer: proCustomer,
       updated_at: new Date().toISOString(),
     };
     let customerId: string | null = null;
@@ -884,12 +1134,12 @@ Deno.serve(async (request) => {
         .from("invoice_customers")
         .update(customerValues)
         .eq("id", customerId)
-        .select("id, name, email, street, postal_code, city, country, created_at")
+        .select("id, name, email, street, postal_code, city, country, pro_customer, created_at")
         .maybeSingle()
       : await supabase
         .from("invoice_customers")
         .insert(customerValues)
-        .select("id, name, email, street, postal_code, city, country, created_at")
+        .select("id, name, email, street, postal_code, city, country, pro_customer, created_at")
         .maybeSingle();
     const { data, error } = result;
     if (error) {
@@ -898,6 +1148,165 @@ Deno.serve(async (request) => {
     }
     if (!data) return respond({ error: "Invoice customer could not be found" }, 404);
     return respond({ customer: data }, payload.action === "save-invoice-customer" ? 201 : 200);
+  }
+
+  if (payload.action === "list-private-sale-customers") {
+    const { data, error } = await supabase
+      .from("private_sale_customers")
+      .select("id, name, email, created_at")
+      .order("name", { ascending: true })
+      .limit(500);
+    if (error) {
+      console.error("Could not list private-sale customers", error.message);
+      return respond({ error: "Private-sale customers could not be loaded" }, 502);
+    }
+    return respond({ customers: data ?? [] });
+  }
+
+  if (payload.action === "private-sale-settings") {
+    const { data, error } = await supabase
+      .from("private_sale_settings")
+      .select("seller_name, seller_email")
+      .eq("id", 1)
+      .single();
+    if (error) {
+      console.error("Could not load private-sale seller details", error.message);
+      return respond({ error: "Private-sale seller details could not be loaded" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "save-private-sale-settings") {
+    const sellerName = invoiceText(payload.sellerName, 160);
+    const sellerEmail = invoiceText(payload.sellerEmail ?? "", 254, false);
+    if (!sellerName || sellerEmail === null ||
+        (sellerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sellerEmail))) {
+      return respond({ error: "Enter your name and, if provided, a valid email address" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("private_sale_settings")
+      .update({
+        seller_name: sellerName,
+        seller_email: sellerEmail,
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      })
+      .eq("id", 1)
+      .select("seller_name, seller_email")
+      .single();
+    if (error) {
+      console.error("Could not save private-sale seller details", error.message);
+      return respond({ error: "Private-sale seller details could not be saved" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "save-private-sale-customer") {
+    const name = invoiceText(payload.name, 160);
+    const email = invoiceText(payload.email ?? "", 254, false);
+    if (!name || email === null || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+      return respond({ error: "Enter a customer name and a valid email address" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("private_sale_customers")
+      .insert({ name, email })
+      .select("id, name, email, created_at")
+      .single();
+    if (error) {
+      console.error("Could not save private-sale customer", error.message);
+      return respond({ error: "Private-sale customer could not be saved" }, 502);
+    }
+    return respond({ customer: data }, 201);
+  }
+
+  if (payload.action === "list-private-sale-receipts") {
+    const { data, error } = await supabase
+      .from("private_sale_receipts")
+      .select("id, receipt_number, receipt_date, seller_snapshot, customer_snapshot, line_items, total_cents, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      console.error("Could not list private-sale receipts", error.message);
+      return respond({ error: "Private-sale receipts could not be loaded" }, 502);
+    }
+    return respond({ receipts: data ?? [] });
+  }
+
+  if (payload.action === "create-private-sale-receipt") {
+    const customerId = payload.customerId;
+    const date = invoiceDate(payload.receiptDate);
+    const note = invoiceText(payload.note ?? "", 2000, false);
+    if (typeof customerId !== "string" || !/^[0-9a-f-]{36}$/i.test(customerId) ||
+        !date || note === null || !Array.isArray(payload.items) ||
+        payload.items.length < 1 || payload.items.length > 50) {
+      return respond({ error: "Check the customer, date and private-sale items" }, 400);
+    }
+    const { data: seller, error: sellerError } = await supabase
+      .from("private_sale_settings")
+      .select("seller_name, seller_email")
+      .eq("id", 1)
+      .single();
+    if (sellerError || !seller?.seller_name) {
+      if (sellerError) console.error("Could not load private-sale seller details", sellerError.message);
+      return respond({ error: "Save your private-sale seller name before creating a receipt" }, 400);
+    }
+    const { data: customer, error: customerError } = await supabase
+      .from("private_sale_customers")
+      .select("id, name, email")
+      .eq("id", customerId)
+      .maybeSingle();
+    if (customerError) {
+      console.error("Could not load private-sale customer", customerError.message);
+      return respond({ error: "Private-sale customer could not be loaded" }, 502);
+    }
+    if (!customer) return respond({ error: "Private-sale customer could not be found" }, 404);
+
+    const lineItems: {
+      description: string;
+      quantity: string;
+      unit_price_cents: number;
+      line_total_cents: number;
+    }[] = [];
+    let totalCents = 0;
+    for (const item of payload.items) {
+      if (typeof item !== "object" || item === null) {
+        return respond({ error: "Every private-sale item needs a description, quantity and price" }, 400);
+      }
+      const description = invoiceText(item.description, 200);
+      const quantity = invoiceQuantityMilli(item.quantity);
+      const unitPriceCents = invoiceAmountCents(item.unitPrice);
+      if (!description || !quantity || unitPriceCents === null || unitPriceCents < 1) {
+        return respond({ error: "Check each private-sale item's description, quantity and price" }, 400);
+      }
+      const lineTotalCents = Math.round(unitPriceCents * quantity.milli / 1000);
+      totalCents += lineTotalCents;
+      if (totalCents > 10_000_000_000) {
+        return respond({ error: "The private-sale total exceeds the maximum supported amount" }, 400);
+      }
+      lineItems.push({
+        description,
+        quantity: quantity.quantity,
+        unit_price_cents: unitPriceCents,
+        line_total_cents: lineTotalCents,
+      });
+    }
+    if (totalCents < 1) return respond({ error: "The private-sale total must be greater than zero" }, 400);
+
+    const { data: receipt, error } = await supabase.rpc("admin_create_private_sale_receipt", {
+      p_customer_id: customer.id,
+      p_receipt_date: date,
+      p_seller_snapshot: { name: seller.seller_name, email: seller.seller_email },
+      p_customer_snapshot: { name: customer.name, email: customer.email },
+      p_line_items: lineItems,
+      p_total_cents: totalCents,
+      p_note: note,
+      p_created_by: authData.user.id,
+    });
+    if (error || !receipt) {
+      console.error("Could not create private-sale receipt", error?.message ?? "No receipt returned");
+      return respond({ error: "Private-sale receipt could not be created" }, 502);
+    }
+    return respond({ receipt }, 201);
   }
 
   if (payload.action === "list-invoice-products") {

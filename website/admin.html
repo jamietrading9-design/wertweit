@@ -45,7 +45,7 @@
     th { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
     td:first-child { font-weight: 600; }
     .pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; font-size: 12px; }
-    .user-actions { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(3, auto); gap: 7px; min-width: 420px; }
+    .user-actions { display: grid; grid-template-columns: minmax(120px, 1fr) repeat(4, auto); gap: 7px; min-width: 500px; }
     .user-actions button, .user-actions input { min-height: 36px; padding: 0 9px; font-size: 11px; }
     .support-thread { padding: 8px 0; border-top: 1px solid var(--line); }
     .support-thread:first-child { border-top: 0; }
@@ -90,6 +90,10 @@
     .invoice-customer-form summary { cursor: pointer; font-size: 13px; font-weight: 700; }
     .invoice-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
     .invoice-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; font-size: 12px; }
+    .admin-nav { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 20px; padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
+    .admin-nav button { flex: none; min-height: 38px; }
+    .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; }
+    .private-item-row input { min-width: 90px; }
     dialog { width: min(620px, calc(100% - 28px)); max-height: 90vh; overflow: auto; border: 1px solid var(--line); padding: 22px; color: var(--ink); }
     dialog::backdrop { background: rgba(11, 43, 36, .55); }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -123,10 +127,19 @@
 
     <section id="dashboard" hidden>
       <div class="toolbar">
-        <div><h1>Übersicht</h1><p class="intro">Nutzer, App-Nutzung, Pro-Zugänge, Angebote und Support verwalten.</p></div>
+        <div><h1 id="admin-page-title">Admin-Dashboard</h1><p id="admin-page-description" class="intro">Kennzahlen und den Zustand der App im Blick behalten.</p></div>
         <button id="logout-button" class="secondary" type="button">Abmelden</button>
       </div>
-      <section class="card" aria-labelledby="metrics-title">
+      <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
+        <button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button>
+        <button type="button" data-admin-tab="people">Personen / Datenbank</button>
+        <button type="button" data-admin-tab="support">Support</button>
+        <button type="button" data-admin-tab="settings">Einstellungen</button>
+        <button type="button" data-admin-tab="invoices">App-Rechnungen</button>
+        <button type="button" data-admin-tab="customers">Kunden</button>
+        <button type="button" data-admin-tab="private">Privatverkäufe</button>
+      </nav>
+      <section class="card" data-admin-page="dashboard" aria-labelledby="metrics-title">
         <div class="card-heading"><h2 id="metrics-title">App-Kennzahlen</h2><button id="refresh-metrics" class="secondary" type="button">Aktualisieren</button></div>
         <p class="intro">App-Starts werden pro angemeldetem Konto höchstens einmal innerhalb von 30 Minuten gezählt. Werte beginnen nach dem Update der App zu wachsen.</p>
         <p id="metrics-status" class="status" role="status"></p>
@@ -141,7 +154,7 @@
           <div class="metric"><strong id="metric-opens-365d">–</strong><span>App-Sitzungen der letzten 365 Tage</span></div>
         </div>
       </section>
-      <section class="card" aria-labelledby="maintenance-title">
+      <section class="card" data-admin-page="settings" aria-labelledby="maintenance-title">
         <div class="card-heading"><h2 id="maintenance-title">Wartungsmodus</h2><span id="maintenance-state" class="status"></span></div>
         <label class="setting"><input id="maintenance-enabled" type="checkbox"> App für Nutzer online sperren</label>
         <label>Hinweis für App und Wartungs-E-Mail<textarea id="maintenance-message" maxlength="500" required></textarea></label>
@@ -149,7 +162,7 @@
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
       </section>
-      <section class="card" aria-labelledby="pro-offer-heading">
+      <section class="card" data-admin-page="settings" aria-labelledby="pro-offer-heading">
         <div class="card-heading"><h2 id="pro-offer-heading">Pro-Angebot in der App</h2></div>
         <p class="notice">Hier änderst du Werbetexte und Hinweise, nicht Apples tatsächlichen Abopreis. Monatspreis, Jahrespreis, Laufzeit und Kündigung verwaltest du in App Store Connect. App-Store-Käufe oder Umsätze lassen sich erst mit einer zusätzlich eingerichteten Apple-Server-Anbindung verlässlich anzeigen.</p>
         <div class="fields">
@@ -162,14 +175,9 @@
         <p id="pro-offer-status" class="status" role="status"></p>
         <p><a href="https://appstoreconnect.apple.com/" target="_blank" rel="noreferrer">App Store Connect öffnen, um echte Abo-Preise zu ändern</a></p>
       </section>
-      <section class="card" aria-labelledby="invoices-title">
-        <div class="card-heading">
-          <div><h2 id="invoices-title">Rechnungen</h2><p class="intro">Kunden verwalten, Rechnungen erstellen und als PDF drucken oder speichern.</p></div>
-          <button id="refresh-invoices" class="secondary" type="button">Aktualisieren</button>
-        </div>
-        <p class="notice">Rechnungen werden als Kleinunternehmer nach § 19 UStG ohne Umsatzsteuerausweis erstellt. Die Daten bleiben in deinem Supabase-Projekt und sind nur für angemeldete Admins zugänglich.</p>
+      <section class="card" data-admin-page="settings" aria-labelledby="invoice-profile-title">
+        <h2 id="invoice-profile-title">Absender für App-Rechnungen</h2>
         <form id="invoice-profile-form">
-          <h3>Absender und Rechnungslogo</h3>
           <div class="invoice-fields">
             <label>Name / Firma<input id="invoice-seller-name" maxlength="160" required></label>
             <label>Straße und Hausnummer<input id="invoice-seller-street" maxlength="200" required></label>
@@ -194,19 +202,13 @@
           </div>
         </form>
         <p id="invoice-profile-status" class="status" role="status"></p>
-        <hr>
-        <details class="invoice-customer-form">
-          <summary>Neuen Rechnungskunden anlegen</summary>
-          <form id="invoice-customer-form" class="invoice-fields">
-            <label>Name / Firma<input id="invoice-customer-name" maxlength="160" required></label>
-            <label>E-Mail (optional)<input id="invoice-customer-email" type="email" maxlength="254"></label>
-            <label>Straße und Hausnummer<input id="invoice-customer-street" maxlength="200" required></label>
-            <label>Postleitzahl<input id="invoice-customer-postal-code" maxlength="24" required></label>
-            <label>Ort<input id="invoice-customer-city" maxlength="120" required></label>
-            <label>Land<input id="invoice-customer-country" maxlength="80" value="Deutschland" required></label>
-            <div class="wide"><button id="save-invoice-customer" type="submit">Kundenkonto speichern</button></div>
-          </form>
-        </details>
+      </section>
+      <section class="card" data-admin-page="invoices" aria-labelledby="invoices-title">
+        <div class="card-heading">
+          <div><h2 id="invoices-title">Rechnungen</h2><p class="intro">Kunden verwalten, Rechnungen erstellen und als PDF drucken oder speichern.</p></div>
+          <button id="refresh-invoices" class="secondary" type="button">Aktualisieren</button>
+        </div>
+        <p class="notice">App-/Geschäftsrechnungen werden mit dem eingestellten Kleinunternehmerhinweis erstellt. Kundengruppen „Ohne Pro“ und „Mit Pro“ sind manuelle Zuordnungen und werden nicht automatisch mit Apple-Abos synchronisiert. Die Daten bleiben in Supabase und sind nur für angemeldete Admins zugänglich.</p>
         <details class="invoice-customer-form">
           <summary>Gespeicherte Produkte und Leistungen</summary>
           <form id="invoice-product-form" class="invoice-fields">
@@ -274,22 +276,88 @@
           </table>
         </div>
         <div class="invoice-pagination"><button id="invoice-previous-page" class="secondary" type="button">Zurück</button><span id="invoice-page-label"></span><button id="invoice-next-page" class="secondary" type="button">Weiter</button></div>
-        <hr>
-        <div class="card-heading"><h3>Kundenkonten</h3></div>
+      </section>
+      <section class="card" data-admin-page="customers" aria-labelledby="invoice-customers-anchor">
+        <div id="invoice-customers-anchor" class="card-heading"><h2>Kunden für App-Rechnungen</h2></div>
+        <p class="intro">Kundendaten werden dauerhaft gespeichert. Pro-Kundinnen und -Kunden können hier direkt eine neue Rechnung starten; die Zuordnung wird von dir gepflegt.</p>
+        <details class="invoice-customer-form">
+          <summary>Neuen Rechnungskunden anlegen</summary>
+          <form id="invoice-customer-form" class="invoice-fields">
+            <label>Name / Firma<input id="invoice-customer-name" maxlength="160" required></label>
+            <label>E-Mail (optional)<input id="invoice-customer-email" type="email" maxlength="254"></label>
+            <label>Straße und Hausnummer<input id="invoice-customer-street" maxlength="200" required></label>
+            <label>Postleitzahl<input id="invoice-customer-postal-code" maxlength="24" required></label>
+            <label>Ort<input id="invoice-customer-city" maxlength="120" required></label>
+            <label>Land<input id="invoice-customer-country" maxlength="80" value="Deutschland" required></label>
+            <label>Kundengruppe<select id="invoice-customer-pro"><option value="false">Ohne Pro</option><option value="true">Mit Pro</option></select></label>
+            <div class="wide"><button id="save-invoice-customer" type="submit">Kundenkonto speichern</button></div>
+          </form>
+        </details>
+        <div class="card-heading"><h3>Gespeicherte Kunden</h3></div>
         <div class="invoice-filter-grid">
           <label>Kunden suchen<input id="customer-search" maxlength="160"></label>
+          <label>Kundengruppe<select id="customer-tier-filter"><option value="all">Alle Kunden</option><option value="standard">Ohne Pro</option><option value="pro">Mit Pro</option></select></label>
           <button id="filter-customers" type="button">Kunden suchen</button>
         </div>
+        <p id="customer-status" class="status" role="status"></p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>E-Mail</th><th>Adresse</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Name</th><th>Gruppe</th><th>E-Mail</th><th>Adresse</th><th>Aktionen</th></tr></thead>
             <tbody id="invoice-customer-list"></tbody>
           </table>
         </div>
         <div class="invoice-pagination"><button id="customer-previous-page" class="secondary" type="button">Zurück</button><span id="customer-page-label"></span><button id="customer-next-page" class="secondary" type="button">Weiter</button></div>
       </section>
-      <section class="card" aria-labelledby="accounts-title">
-        <div class="card-heading"><h2 id="accounts-title">Nutzerkonten</h2><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
+      <section class="card" data-admin-page="private" aria-labelledby="private-sales-title">
+        <div class="card-heading">
+          <div><h2 id="private-sales-title">Private Verkäufe</h2><p class="intro">Getrennte private Verkaufsbelege – nicht Teil der App-/Geschäftsrechnungen.</p></div>
+          <button id="refresh-private-sales" class="secondary" type="button">Aktualisieren</button>
+        </div>
+        <p class="notice">Diese Belege sind als private Verkaufsaufzeichnungen getrennt gespeichert und weisen keine Umsatzsteuer aus. Sie sind keine Geschäftsrechnungen. Bitte prüfe im Zweifel die steuerliche Einordnung deiner Verkäufe.</p>
+        <form id="private-profile-form">
+          <h3>Deine privaten Verkäuferangaben</h3>
+          <div class="invoice-fields">
+            <label>Dein Name<input id="private-seller-name" maxlength="160" required></label>
+            <label>E-Mail (optional)<input id="private-seller-email" type="email" maxlength="254"></label>
+            <div class="wide"><button id="save-private-profile" type="submit">Private Angaben speichern</button></div>
+          </div>
+        </form>
+        <p id="private-profile-status" class="status" role="status"></p>
+        <details class="invoice-customer-form">
+          <summary>Privatkundin oder Privatkunden speichern</summary>
+          <form id="private-customer-form" class="invoice-fields">
+            <label>Name<input id="private-customer-name" maxlength="160" required></label>
+            <label>E-Mail (optional)<input id="private-customer-email" type="email" maxlength="254"></label>
+            <div class="wide"><button id="save-private-customer" type="submit">Privatkundschaft speichern</button></div>
+          </form>
+        </details>
+        <div class="table-wrap">
+          <table><thead><tr><th>Name</th><th>E-Mail</th></tr></thead><tbody id="private-customer-list"></tbody></table>
+        </div>
+        <form id="private-sale-form">
+          <h3>Privaten Verkaufsbeleg erstellen</h3>
+          <div class="invoice-fields">
+            <label>Kunde<select id="private-sale-customer" required><option value="">Kundschaft laden …</option></select></label>
+            <label>Verkaufsdatum<input id="private-sale-date" type="date" required></label>
+          </div>
+          <div class="card-heading">
+            <h3>Verkaufte Artikel</h3>
+            <button id="add-private-sale-item" class="secondary" type="button">Artikel hinzufügen</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Artikel</th><th>Menge</th><th>Einzelpreis (EUR)</th><th></th></tr></thead><tbody id="private-sale-items"></tbody></table>
+          </div>
+          <p id="private-sale-total" class="notice">Gesamtbetrag: 0,00 €</p>
+          <label>Hinweis (optional)<textarea id="private-sale-note" maxlength="2000"></textarea></label>
+          <p><button id="create-private-sale" type="submit">Privaten Beleg erstellen</button></p>
+        </form>
+        <p id="private-sale-status" class="status" role="status"></p>
+        <hr>
+        <h3>Archiv privater Verkaufsbelege</h3>
+        <div class="table-wrap"><table><thead><tr><th>Belegnummer</th><th>Datum</th><th>Kunde</th><th>Betrag</th><th>Aktionen</th></tr></thead><tbody id="private-sale-list"></tbody></table></div>
+      </section>
+      <section class="card" data-admin-page="people" aria-labelledby="accounts-title">
+        <div class="card-heading"><div><h2 id="accounts-title">Personen-Datenbank</h2><p class="intro">Konten, Pro-Freigaben, App-Nutzung, Rechnungen und Support pro Person ansehen.</p></div><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
         <form id="create-user-form" class="fields">
           <label>Nutzer einladen oder direkt anlegen<input id="new-user-email" type="email" autocomplete="email" required></label>
           <label class="setting"><input id="new-user-skip-confirmation" type="checkbox"> Konto sofort aktiv anlegen (ohne E-Mail-Bestätigung)</label>
@@ -298,6 +366,10 @@
           <button id="create-user-button" type="submit">Einladung senden / Konto anlegen</button>
         </form>
         <p id="create-user-status" class="status" role="status"></p>
+        <div class="invoice-filter-grid">
+          <label>Person nach E-Mail suchen<input id="user-search" type="search" maxlength="160" autocomplete="off"></label>
+          <button id="search-users" type="button">Suchen</button>
+        </div>
         <p id="users-status" class="status" role="status"></p>
         <div class="table-wrap">
           <table>
@@ -307,7 +379,17 @@
         </div>
         <div class="pagination"><button id="previous-page" class="secondary" type="button">Zurück</button><span id="page-label"></span><button id="next-page" class="secondary" type="button">Weiter</button></div>
       </section>
-      <section class="card" aria-labelledby="email-title">
+      <section class="card" data-admin-page="person-detail" aria-labelledby="person-detail-title" hidden>
+        <div class="card-heading"><div><h2 id="person-detail-title">Personenakte</h2><p class="intro">Kontodaten und zugehörige App-Daten auf einer Seite.</p></div><button id="back-to-people" class="secondary" type="button">Zur Personenliste</button></div>
+        <p id="person-profile-status" class="status" role="status"></p>
+        <div id="person-profile-summary" class="metrics-grid"></div>
+        <p id="person-store-note" class="notice"></p>
+        <section><h3>App-Aktivität</h3><p class="notice">Die App speichert derzeit Anmeldungen und App-Starts, aber keine vollständige Klick- oder Funktionshistorie.</p><div id="person-activity"></div></section>
+        <section><h3>App-Rechnungen</h3><p class="intro">Zuordnung anhand der E-Mail-Adresse; sie ist kein festes Kontolink.</p><div class="table-wrap"><table><thead><tr><th>Nummer</th><th>Datum</th><th>Betrag</th><th>Status</th></tr></thead><tbody id="person-invoices"></tbody></table></div></section>
+        <section><h3>Supportfälle und Nachrichten</h3><div id="person-support-cases"></div></section>
+        <section><h3>Interne Personen-Notizen</h3><p class="notice">Nur für Admins sichtbar, nicht an die Person gesendet.</p><div id="person-private-notes"></div></section>
+      </section>
+      <section class="card" data-admin-page="people" aria-labelledby="email-title">
         <div class="card-heading"><h2 id="email-title">E-Mail senden</h2></div>
         <p class="notice">Absender: wertweitoffiziell@gmail.com. Einzelne Konten: nur notwendige Konto- oder Servicenachrichten senden. Rundmails gehen ausschließlich an Nutzer, die Produktneuigkeiten in der App ausdrücklich eingeschaltet haben. Jede Rundmail enthält einen Abmeldehinweis.</p>
         <form id="email-form" class="email-compose">
@@ -323,7 +405,7 @@
         </form>
         <p id="email-status" class="status" role="status"></p>
       </section>
-      <section class="card" aria-labelledby="support-title">
+      <section class="card" data-admin-page="support" aria-labelledby="support-title">
         <div class="card-heading"><h2 id="support-title">Support-Postfach</h2>
           <div class="support-ticket-actions">
             <label>Ansicht<select id="support-filter">
@@ -348,6 +430,7 @@
       <div class="invoice-fields">
         <label>Name / Firma<input id="edit-customer-name" maxlength="160" required></label>
         <label>E-Mail (optional)<input id="edit-customer-email" type="email" maxlength="254"></label>
+        <label>Kundengruppe<select id="edit-customer-pro"><option value="false">Ohne Pro</option><option value="true">Mit Pro</option></select></label>
         <label>Straße und Hausnummer<input id="edit-customer-street" maxlength="200" required></label>
         <label>Postleitzahl<input id="edit-customer-postal-code" maxlength="24" required></label>
         <label>Ort<input id="edit-customer-city" maxlength="120" required></label>
@@ -378,6 +461,7 @@
     const proOfferStatus = document.querySelector("#pro-offer-status");
     const emailStatus = document.querySelector("#email-status");
     const invoiceStatus = document.querySelector("#invoice-status");
+    const customerStatus = document.querySelector("#customer-status");
     const invoiceProfileStatus = document.querySelector("#invoice-profile-status");
     const perPage = 25;
     let page = 1;
@@ -386,6 +470,8 @@
     let invoiceLogoDataUrl = null;
     let invoiceCustomers = [];
     let invoiceProducts = [];
+    let privateSaleCustomers = [];
+    let privateSaleReceipts = [];
     let selectedInvoiceCustomer = null;
     let invoicePage = 1;
     let invoiceTotal = 0;
@@ -477,7 +563,31 @@
         const { settings } = await callAdmin("get-settings");
         loginView.hidden = true;
         dashboard.hidden = false;
-        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics(), loadInvoiceWorkspace()]);
+        setAdminPage("dashboard");
+        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics(), loadInvoiceWorkspace(), loadPrivateSales()]);
+      }
+
+      function setAdminPage(page, activeTab = page) {
+        const pageText = {
+          dashboard: ["Admin-Dashboard", "Kennzahlen und den Zustand der App im Blick behalten."],
+          people: ["Personen / Datenbank", "Konten, Pro-Freigaben, Verlauf und interne Notizen verwalten."],
+          "person-detail": ["Personenakte", "Zugehörige Konto-, Nutzungs-, Rechnungs- und Supportdaten."],
+          support: ["Support-Postfach", "Tickets prüfen, übernehmen und intern dokumentieren."],
+          settings: ["Einstellungen", "Wartung, Pro-Angebot und Rechnungsabsender konfigurieren."],
+          invoices: ["App-Rechnungen", "Geschäftsrechnungen erstellen und im Archiv verwalten."],
+          customers: ["Kunden", "Kundenkonten für App-Rechnungen bearbeiten und gruppieren."],
+          private: ["Private Verkäufe", "Getrennte private Verkaufsbelege erstellen und verwalten."],
+        };
+        for (const section of dashboard.querySelectorAll("[data-admin-page]")) {
+          section.hidden = section.dataset.adminPage !== page;
+        }
+        const [title, description] = pageText[page] ?? pageText.dashboard;
+        document.querySelector("#admin-page-title").textContent = title;
+        document.querySelector("#admin-page-description").textContent = description;
+        for (const button of document.querySelectorAll("[data-admin-tab]")) {
+          if (button.dataset.adminTab === activeTab) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        }
       }
 
       async function loadSettings(settings) {
@@ -499,13 +609,15 @@
       async function loadInvoiceWorkspace() {
         setStatus(invoiceStatus, "Rechnungsdaten werden geladen …");
         try {
-          const [settingsResult, customersResult, productsResult, invoicesResult] = await Promise.all([
+          const [settingsResult, customersResult, customerOptionsResult, productsResult, invoicesResult] = await Promise.all([
             callAdmin("invoice-settings"),
             callAdmin("list-invoice-customers", {
               page: customerPage,
               perPage: customerPerPage,
               search: document.querySelector("#customer-search").value.trim(),
+              tier: document.querySelector("#customer-tier-filter").value,
             }),
+            callAdmin("list-invoice-customer-options"),
             callAdmin("list-invoice-products"),
             fetchInvoices(),
           ]);
@@ -530,11 +642,11 @@
           invoiceLogoDataUrl = settings.invoice_logo_data_url || null;
           document.querySelector("#invoice-logo-preview").src =
             invoiceLogoDataUrl || "./assets/wertweit-logo.png";
-          invoiceCustomers = customersResult.customers;
+          invoiceCustomers = customerOptionsResult.customers;
           customerTotal = customersResult.total;
           invoiceProducts = productsResult.products;
           renderInvoiceCustomerOptions();
-          renderInvoiceCustomers();
+          renderInvoiceCustomers(customersResult.customers);
           renderInvoiceProducts();
           renderInvoiceList(invoicesResult.invoices);
           renderInvoicePagination();
@@ -584,33 +696,39 @@
       }
 
       async function loadInvoiceCustomers() {
-        setStatus(invoiceStatus, "Kundenkonten werden geladen …");
+        setStatus(customerStatus, "Kundenkonten werden geladen …");
         try {
           const result = await callAdmin("list-invoice-customers", {
             page: customerPage,
             perPage: customerPerPage,
             search: document.querySelector("#customer-search").value.trim(),
+            tier: document.querySelector("#customer-tier-filter").value,
           });
-          invoiceCustomers = result.customers;
           customerTotal = result.total;
-          renderInvoiceCustomerOptions();
-          renderInvoiceCustomers();
+          renderInvoiceCustomers(result.customers);
           renderCustomerPagination();
-          setStatus(invoiceStatus, `${customerTotal} Kundenkonto/Konten gefunden.`, "success");
+          setStatus(customerStatus, `${customerTotal} Kundenkonto/Konten gefunden.`, "success");
           return true;
         } catch (error) {
-          setStatus(invoiceStatus, error.message, "error");
+          setStatus(customerStatus, error.message, "error");
           return false;
         }
       }
 
-      function renderInvoiceCustomers() {
+      async function loadInvoiceCustomerOptions(selectedId = document.querySelector("#invoice-customer").value) {
+        const { customers } = await callAdmin("list-invoice-customer-options");
+        invoiceCustomers = customers;
+        renderInvoiceCustomerOptions(selectedId);
+      }
+
+      function renderInvoiceCustomers(customers = invoiceCustomers) {
         const body = document.querySelector("#invoice-customer-list");
         body.replaceChildren();
-        for (const customer of invoiceCustomers) {
+        for (const customer of customers) {
           const row = document.createElement("tr");
           for (const text of [
             customer.name,
+            customer.pro_customer ? "Mit Pro" : "Ohne Pro",
             customer.email || "Keine E-Mail",
             `${customer.street}, ${customer.postal_code} ${customer.city}, ${customer.country}`,
           ]) {
@@ -625,6 +743,19 @@
           editButton.textContent = "Bearbeiten";
           editButton.addEventListener("click", () => openCustomerEditor(customer));
           actionsCell.append(editButton);
+          if (customer.pro_customer) {
+            const invoiceButton = document.createElement("button");
+            invoiceButton.type = "button";
+            invoiceButton.textContent = "Rechnung erstellen";
+            invoiceButton.addEventListener("click", () => {
+              selectedInvoiceCustomer = customer;
+              renderInvoiceCustomerOptions(customer.id);
+              setAdminPage("invoices");
+              document.querySelector("#invoice-form").scrollIntoView({ behavior: "smooth", block: "start" });
+              document.querySelector("#invoice-customer").focus({ preventScroll: true });
+            });
+            actionsCell.append(invoiceButton);
+          }
           row.append(actionsCell);
           body.append(row);
         }
@@ -700,6 +831,199 @@
         renderInvoiceProducts();
       }
 
+      function openEmailDraft(recipient, subject, body, statusElement) {
+        if (!recipient) {
+          setStatus(statusElement, "Für diesen Kunden ist keine E-Mail-Adresse gespeichert.", "error");
+          return;
+        }
+        const query = new URLSearchParams({ subject, body });
+        const link = document.createElement("a");
+        link.href = `mailto:${encodeURIComponent(recipient)}?${query.toString()}`;
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setStatus(statusElement, "Dein E-Mail-Programm wurde geöffnet. Den PDF-Beleg bitte dort manuell als Anhang hinzufügen.");
+      }
+
+      function renderPrivateSaleCustomers() {
+        const select = document.querySelector("#private-sale-customer");
+        const selectedId = select.value;
+        select.replaceChildren(new Option("Privatkundin oder Privatkunden auswählen", ""));
+        for (const customer of privateSaleCustomers) {
+          select.add(new Option(`${customer.name}${customer.email ? ` · ${customer.email}` : ""}`, customer.id));
+        }
+        if (privateSaleCustomers.some((customer) => customer.id === selectedId)) select.value = selectedId;
+        const body = document.querySelector("#private-customer-list");
+        body.replaceChildren();
+        for (const customer of privateSaleCustomers) {
+          const row = document.createElement("tr");
+          for (const text of [customer.name, customer.email || "Keine E-Mail"]) {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.append(cell);
+          }
+          body.append(row);
+        }
+      }
+
+      function renderPrivateSaleReceipts() {
+        const body = document.querySelector("#private-sale-list");
+        body.replaceChildren();
+        for (const receipt of privateSaleReceipts) {
+          const row = document.createElement("tr");
+          for (const text of [
+            receipt.receipt_number,
+            formatInvoiceDate(receipt.receipt_date),
+            receipt.customer_snapshot.name,
+            formatInvoiceAmount(receipt.total_cents),
+          ]) {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.append(cell);
+          }
+          const actionsCell = document.createElement("td");
+          const actions = document.createElement("div");
+          actions.className = "invoice-list-actions";
+          const printButton = document.createElement("button");
+          printButton.type = "button";
+          printButton.textContent = "PDF / Drucken";
+          printButton.addEventListener("click", () => printPrivateReceipt(receipt));
+          actions.append(printButton);
+          if (receipt.customer_snapshot.email) {
+            const emailButton = document.createElement("button");
+            emailButton.type = "button";
+            emailButton.className = "secondary";
+            emailButton.textContent = "E-Mail vorbereiten";
+            emailButton.addEventListener("click", () => openEmailDraft(
+              receipt.customer_snapshot.email,
+              `Privater Verkaufsbeleg ${receipt.receipt_number}`,
+              `Hallo ${receipt.customer_snapshot.name},\n\nanbei der private Verkaufsbeleg ${receipt.receipt_number} vom ${formatInvoiceDate(receipt.receipt_date)} über ${formatInvoiceAmount(receipt.total_cents)}.\n\nViele Grüße\n${receipt.seller_snapshot.name}\n\nBitte den PDF-Beleg nach dem Speichern manuell an diese E-Mail anhängen.`,
+              document.querySelector("#private-sale-status"),
+            ));
+            actions.append(emailButton);
+          }
+          actionsCell.append(actions);
+          row.append(actionsCell);
+          body.append(row);
+        }
+        if (!privateSaleReceipts.length) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 5;
+          cell.textContent = "Noch keine privaten Verkaufsbelege vorhanden.";
+          row.append(cell);
+          body.append(row);
+        }
+      }
+
+      async function loadPrivateSales() {
+        setStatus(document.querySelector("#private-sale-status"), "Private Kunden und Belege werden geladen …");
+        try {
+          const [settingsResult, customersResult, receiptsResult] = await Promise.all([
+            callAdmin("private-sale-settings"),
+            callAdmin("list-private-sale-customers"),
+            callAdmin("list-private-sale-receipts"),
+          ]);
+          document.querySelector("#private-seller-name").value = settingsResult.settings.seller_name || "";
+          document.querySelector("#private-seller-email").value = settingsResult.settings.seller_email || "";
+          privateSaleCustomers = customersResult.customers;
+          privateSaleReceipts = receiptsResult.receipts;
+          renderPrivateSaleCustomers();
+          renderPrivateSaleReceipts();
+          if (!document.querySelector("#private-sale-date").value) {
+            document.querySelector("#private-sale-date").value = localDateInputValue(new Date());
+          }
+          setStatus(document.querySelector("#private-sale-status"), `${privateSaleReceipts.length} private Verkaufsbelege geladen.`, "success");
+        } catch (error) {
+          setStatus(document.querySelector("#private-sale-status"), error.message, "error");
+        }
+      }
+
+      function addPrivateSaleItemRow(item = null) {
+        const row = document.createElement("tr");
+        row.className = "private-item-row";
+        const descriptionCell = document.createElement("td");
+        const description = document.createElement("input");
+        description.className = "private-item-description";
+        description.maxLength = 200;
+        description.placeholder = "Artikel";
+        description.value = item?.description ?? "";
+        description.required = true;
+        descriptionCell.append(description);
+        const quantityCell = document.createElement("td");
+        const quantity = document.createElement("input");
+        quantity.className = "private-item-quantity";
+        quantity.type = "number";
+        quantity.min = "0.001";
+        quantity.max = "10000";
+        quantity.step = "0.001";
+        quantity.value = "1";
+        quantity.required = true;
+        quantityCell.append(quantity);
+        const priceCell = document.createElement("td");
+        const price = document.createElement("input");
+        price.className = "private-item-price";
+        price.type = "number";
+        price.min = "0.01";
+        price.step = "0.01";
+        price.placeholder = "0,00";
+        price.value = item?.unitPrice ?? "";
+        price.required = true;
+        priceCell.append(price);
+        const removeCell = document.createElement("td");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary";
+        remove.textContent = "Entfernen";
+        remove.addEventListener("click", () => {
+          if (document.querySelectorAll("#private-sale-items tr").length === 1) {
+            description.value = "";
+            price.value = "";
+          } else {
+            row.remove();
+          }
+          updatePrivateSaleTotal();
+        });
+        quantity.addEventListener("input", updatePrivateSaleTotal);
+        price.addEventListener("input", updatePrivateSaleTotal);
+        removeCell.append(remove);
+        row.append(descriptionCell, quantityCell, priceCell, removeCell);
+        document.querySelector("#private-sale-items").append(row);
+        updatePrivateSaleTotal();
+      }
+
+      function updatePrivateSaleTotal() {
+        const totalCents = [...document.querySelectorAll("#private-sale-items tr")].reduce((total, row) => {
+          const quantity = Number(row.querySelector(".private-item-quantity").value);
+          const price = Number(row.querySelector(".private-item-price").value);
+          if (!Number.isFinite(quantity) || !Number.isFinite(price) || quantity <= 0 || price < 0) return total;
+          return total + Math.round(quantity * Math.round(price * 100));
+        }, 0);
+        document.querySelector("#private-sale-total").textContent = `Gesamtbetrag ohne Umsatzsteuer: ${formatInvoiceAmount(totalCents)}`;
+      }
+
+      function printPrivateReceipt(receipt, printWindow = window.open("", "_blank")) {
+        if (!printWindow) {
+          setStatus(document.querySelector("#private-sale-status"), "Der Druck wurde blockiert. Erlaube Pop-ups und versuche es erneut.", "error");
+          return;
+        }
+        printWindow.opener = null;
+        const itemRows = receipt.line_items.map((item) => `
+          <tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>${formatInvoiceAmount(item.unit_price_cents)}</td><td>${formatInvoiceAmount(item.line_total_cents)}</td></tr>`).join("");
+        const note = receipt.note ? `<p>${escapeHtml(receipt.note).replace(/\n/g, "<br>")}</p>` : "";
+        printWindow.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Privater Beleg ${escapeHtml(receipt.receipt_number)}</title>
+          <style>body{font:14px Arial,sans-serif;color:#18241e;margin:36px}header{display:flex;justify-content:space-between;border-bottom:2px solid #1c6a4f;padding-bottom:18px}h1{color:#123c31;font-size:28px}table{width:100%;border-collapse:collapse;margin-top:28px}th,td{text-align:left;padding:10px;border-bottom:1px solid #ddd}.num{text-align:right}.total{text-align:right;font-size:18px;font-weight:bold;margin-top:20px}.notice{margin-top:28px;padding:12px;background:#f1f4e6}@media print{body{margin:15mm}}</style></head>
+          <body><header><div><h1>Privater Verkaufsbeleg</h1><strong>${escapeHtml(receipt.receipt_number)}</strong></div><div>${escapeHtml(receipt.seller_snapshot.name)}${receipt.seller_snapshot.email ? `<br>${escapeHtml(receipt.seller_snapshot.email)}` : ""}</div></header>
+          <p><strong>Kunde:</strong> ${escapeHtml(receipt.customer_snapshot.name)}${receipt.customer_snapshot.email ? `<br>${escapeHtml(receipt.customer_snapshot.email)}` : ""}</p>
+          <p><strong>Verkaufsdatum:</strong> ${formatInvoiceDate(receipt.receipt_date)}</p>
+          <table><thead><tr><th>Artikel</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody>${itemRows}</tbody></table>
+          <p class="total">Gesamtbetrag: ${formatInvoiceAmount(receipt.total_cents)}</p>${note}
+          <p class="notice">Privater Verkaufsbeleg. Es wird keine Umsatzsteuer ausgewiesen.</p>
+          <script>window.addEventListener("load",()=>setTimeout(()=>window.print(),250),{once:true});<\/script></body></html>`);
+        printWindow.document.close();
+      }
+
       function renderInvoicePagination() {
         const lastPage = Math.max(1, Math.ceil(invoiceTotal / invoicePerPage));
         document.querySelector("#invoice-page-label").textContent =
@@ -720,6 +1044,7 @@
         document.querySelector("#edit-customer-id").value = customer.id;
         document.querySelector("#edit-customer-name").value = customer.name;
         document.querySelector("#edit-customer-email").value = customer.email;
+        document.querySelector("#edit-customer-pro").value = String(customer.pro_customer);
         document.querySelector("#edit-customer-street").value = customer.street;
         document.querySelector("#edit-customer-postal-code").value = customer.postal_code;
         document.querySelector("#edit-customer-city").value = customer.city;
@@ -732,7 +1057,7 @@
         const select = document.querySelector("#invoice-customer");
         select.replaceChildren(new Option("Kundenkonto auswählen", ""));
         for (const customer of invoiceCustomers) {
-          select.add(new Option(`${customer.name} · ${customer.city}`, customer.id));
+          select.add(new Option(`${customer.name} · ${customer.city}${customer.pro_customer ? " · Pro" : ""}`, customer.id));
         }
         const selectedCustomer = invoiceCustomers.find((customer) => customer.id === selectedId) ??
           (selectedInvoiceCustomer?.id === selectedId ? selectedInvoiceCustomer : null);
@@ -869,6 +1194,19 @@
           printButton.textContent = "PDF / Drucken";
           printButton.addEventListener("click", () => printInvoice(invoice));
           actions.append(printButton);
+          if (invoice.customer_snapshot.email) {
+            const emailButton = document.createElement("button");
+            emailButton.type = "button";
+            emailButton.className = "secondary";
+            emailButton.textContent = "E-Mail vorbereiten";
+            emailButton.addEventListener("click", () => openEmailDraft(
+              invoice.customer_snapshot.email,
+              `Rechnung ${invoice.invoice_number}`,
+              `Guten Tag ${invoice.customer_snapshot.name},\n\nanbei erhalten Sie die Rechnung ${invoice.invoice_number} vom ${formatInvoiceDate(invoice.invoice_date)} über ${formatInvoiceAmount(invoice.total_cents)}.\n\nFreundliche Grüße\n${invoice.seller_snapshot.name}\n\nBitte den PDF-Beleg nach dem Speichern manuell an diese E-Mail anhängen.`,
+              invoiceStatus,
+            ));
+            actions.append(emailButton);
+          }
 
           const paymentButton = document.createElement("button");
           paymentButton.type = "button";
@@ -999,11 +1337,254 @@
         }
       }
 
+      function renderPrivateAdminNotes(container, notes, targetType, targetId, statusElement, refresh) {
+        container.replaceChildren();
+        if (!notes.length) {
+          const empty = document.createElement("p");
+          empty.className = "intro";
+          empty.textContent = "Noch keine internen Notizen.";
+          container.append(empty);
+        }
+        for (const note of notes) {
+          const card = document.createElement("article");
+          card.className = "support-thread";
+          const heading = document.createElement("strong");
+          heading.textContent = `${note.label} · ${formatDate(note.created_at)}`;
+          const body = document.createElement("p");
+          body.className = "support-message";
+          body.textContent = note.body;
+          const actions = document.createElement("div");
+          actions.className = "support-ticket-actions";
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "secondary";
+          edit.textContent = "Bearbeiten";
+          edit.addEventListener("click", () => {
+            form.querySelector("[name=noteId]").value = note.id;
+            form.querySelector("[name=label]").value = note.label;
+            form.querySelector("[name=body]").value = note.body;
+            form.querySelector("[type=submit]").textContent = "Notiz aktualisieren";
+            cancel.hidden = false;
+            form.scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "secondary";
+          remove.textContent = "Löschen";
+          remove.addEventListener("click", async () => {
+            if (!window.confirm("Diese interne Notiz endgültig löschen?")) return;
+            setBusy(remove, true);
+            try {
+              await callAdmin("delete-private-admin-note", { targetType, targetId, noteId: note.id });
+              await refresh();
+              setStatus(statusElement, "Interne Notiz gelöscht.", "success");
+            } catch (error) {
+              setStatus(statusElement, error.message, "error");
+              setBusy(remove, false);
+            }
+          });
+          actions.append(edit, remove);
+          card.append(heading, body, actions);
+          container.append(card);
+        }
+
+        const form = document.createElement("form");
+        form.className = "email-compose";
+        const noteId = document.createElement("input");
+        noteId.type = "hidden";
+        noteId.name = "noteId";
+        const label = document.createElement("input");
+        label.name = "label";
+        label.maxLength = 80;
+        label.value = "Interne Notiz";
+        label.required = true;
+        const labelField = document.createElement("label");
+        labelField.textContent = "Interne Kennzeichnung";
+        labelField.append(label);
+        const body = document.createElement("textarea");
+        body.name = "body";
+        body.maxLength = 4000;
+        body.required = true;
+        body.placeholder = "Nur intern sichtbare Notiz …";
+        const bodyField = document.createElement("label");
+        bodyField.textContent = "Notiz";
+        bodyField.append(body);
+        const submit = document.createElement("button");
+        submit.type = "submit";
+        submit.textContent = "Interne Notiz speichern";
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "secondary";
+        cancel.textContent = "Bearbeitung abbrechen";
+        cancel.hidden = true;
+        cancel.addEventListener("click", () => {
+          form.reset();
+          noteId.value = "";
+          label.value = "Interne Notiz";
+          submit.textContent = "Interne Notiz speichern";
+          cancel.hidden = true;
+        });
+        form.append(noteId, labelField, bodyField, submit, cancel);
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          setBusy(submit, true);
+          try {
+            await callAdmin("save-private-admin-note", {
+              targetType,
+              targetId,
+              noteId: noteId.value || undefined,
+              label: label.value,
+              body: body.value,
+            });
+            await refresh();
+            setStatus(statusElement, "Interne Notiz gespeichert. Sie wird nicht an die Person gesendet.", "success");
+          } catch (error) {
+            setStatus(statusElement, error.message, "error");
+          } finally {
+            setBusy(submit, false);
+          }
+        });
+        container.append(form);
+      }
+
+      function renderPersonProfile(profile) {
+        const summary = document.querySelector("#person-profile-summary");
+        summary.replaceChildren();
+        const values = [
+          ["Name", profile.name || "Nicht angegeben"],
+          ["E-Mail", profile.email || "Keine E-Mail"],
+          ["Konto erstellt", formatDate(profile.createdAt)],
+          ["Letzte Anmeldung", formatDate(profile.lastSignInAt)],
+          ["E-Mail bestätigt", profile.emailConfirmedAt ? "Ja" : "Nein"],
+          ["Kontostatus", profile.blocked ? "Gesperrt" : "Aktiv"],
+          ["Adminrolle", profile.isAdmin ? "Admin" : "Nutzer"],
+          ["Admin-Pro-Freigabe", profile.adminProUntil && new Date(profile.adminProUntil) > new Date()
+            ? `Aktiv bis ${formatDate(profile.adminProUntil)}` : "Keine aktive Admin-Pro-Freigabe"],
+          ["Produktneuigkeiten", profile.emailUpdatesSubscribed ? "Eingewilligt" : "Nicht eingewilligt"],
+        ];
+        for (const [label, value] of values) {
+          const card = document.createElement("div");
+          card.className = "metric";
+          const title = document.createElement("span");
+          title.textContent = label;
+          const content = document.createElement("strong");
+          content.textContent = value;
+          card.append(content, title);
+          summary.append(card);
+        }
+        const activity = document.querySelector("#person-activity");
+        activity.replaceChildren();
+        const count = document.createElement("p");
+        count.textContent = `${Number(profile.appOpenCount).toLocaleString("de-DE")} gespeicherte App-Starts`;
+        activity.append(count);
+        if (!profile.recentAppOpens.length) {
+          const none = document.createElement("p");
+          none.className = "intro";
+          none.textContent = "Noch keine App-Starts aufgezeichnet.";
+          activity.append(none);
+        } else {
+          const list = document.createElement("ul");
+          for (const item of profile.recentAppOpens) {
+            const entry = document.createElement("li");
+            entry.textContent = formatDate(item.opened_at);
+            list.append(entry);
+          }
+          activity.append(list);
+        }
+        const invoiceBody = document.querySelector("#person-invoices");
+        invoiceBody.replaceChildren();
+        for (const invoice of profile.invoices) {
+          const row = document.createElement("tr");
+          for (const value of [
+            invoice.invoice_number,
+            formatInvoiceDate(invoice.invoice_date),
+            formatInvoiceAmount(invoice.total_cents),
+            invoice.paid_at ? "Bezahlt" : "Offen",
+          ]) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          }
+          invoiceBody.append(row);
+        }
+        if (!profile.invoices.length) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 4;
+          cell.textContent = "Keine App-Rechnung mit dieser E-Mail-Adresse gefunden.";
+          row.append(cell);
+          invoiceBody.append(row);
+        }
+
+        const ticketList = document.querySelector("#person-support-cases");
+        ticketList.replaceChildren();
+        if (!profile.tickets.length) {
+          const none = document.createElement("p");
+          none.className = "intro";
+          none.textContent = "Keine Supportfälle vorhanden.";
+          ticketList.append(none);
+        }
+        for (const ticket of profile.tickets) {
+          const caseSection = document.createElement("details");
+          caseSection.className = "support-ticket";
+          const heading = document.createElement("summary");
+          heading.textContent = `${ticket.subject} · ${ticket.priorityLabel ?? ticket.support_priority} · ${ticket.status === "closed" ? "Geschlossen" : ticket.status === "in_progress" ? "In Bearbeitung" : "Offen"} · ${formatDate(ticket.updated_at)}`;
+          caseSection.append(heading);
+          for (const message of ticket.messages) {
+            const item = document.createElement("p");
+            item.className = `support-message${message.sender_is_admin ? " admin" : ""}`;
+            item.textContent = `${formatDate(message.created_at)} · ${message.sender_is_admin ? "Wertweit-Support" : profile.email}: ${message.body}`;
+            caseSection.append(item);
+          }
+          const notes = document.createElement("div");
+          notes.className = "support-message";
+          caseSection.append(notes);
+          renderPrivateAdminNotes(notes, ticket.internalNotes, "ticket", ticket.id,
+            document.querySelector("#person-profile-status"), () => openPersonProfile(profile.id));
+          const openTicket = document.createElement("button");
+          openTicket.type = "button";
+          openTicket.className = "secondary";
+          openTicket.textContent = "Ticket im Support öffnen";
+          openTicket.addEventListener("click", async () => {
+            activeSupportThreadId = ticket.id;
+            document.querySelector("#support-filter").value = "all";
+            setAdminPage("support");
+            await loadSupport();
+          });
+          caseSection.append(openTicket);
+          ticketList.append(caseSection);
+        }
+        renderPrivateAdminNotes(
+          document.querySelector("#person-private-notes"),
+          profile.privateNotes,
+          "user",
+          profile.id,
+          document.querySelector("#person-profile-status"),
+          () => openPersonProfile(profile.id),
+        );
+        document.querySelector("#person-store-note").textContent =
+          "Apple-App-Store-Abos werden nicht an Supabase gespiegelt. „Admin-Pro-Freigabe“ zeigt nur die manuell verwaltete Freigabe, nicht den Store-Abo-Status.";
+      }
+
+      async function openPersonProfile(userId) {
+        setAdminPage("person-detail", "people");
+        setStatus(document.querySelector("#person-profile-status"), "Personenakte wird geladen …");
+        document.querySelector("#person-profile-summary").replaceChildren();
+        try {
+          const { profile } = await callAdmin("get-user-profile", { userId });
+          renderPersonProfile(profile);
+          setStatus(document.querySelector("#person-profile-status"), "Personenakte geladen.", "success");
+        } catch (error) {
+          setStatus(document.querySelector("#person-profile-status"), error.message, "error");
+        }
+      }
+
       async function loadUsers() {
         setBusy(document.querySelector("#refresh-users"), true);
         setStatus(usersStatus, "Konten werden geladen …");
         try {
-          const result = await callAdmin("list-users", { page, perPage });
+          const search = document.querySelector("#user-search").value.trim();
+          const result = await callAdmin("list-users", { page, perPage, search });
           total = Number.isInteger(result.total) ? result.total : 0;
           usersBody.replaceChildren();
           for (const user of result.users) {
@@ -1043,6 +1624,12 @@
             const actionsCell = document.createElement("td");
             const actions = document.createElement("div");
             actions.className = "user-actions";
+            const profileButton = document.createElement("button");
+            profileButton.type = "button";
+            profileButton.className = "secondary";
+            profileButton.textContent = "Personenakte";
+            profileButton.addEventListener("click", () => openPersonProfile(user.id));
+            actions.append(profileButton);
             const expiry = document.createElement("input");
             expiry.type = "date";
             expiry.min = new Date().toISOString().slice(0, 10);
@@ -1108,7 +1695,9 @@
             row.append(actionsCell);
             usersBody.append(row);
           }
-          setStatus(usersStatus, `${total} Konto${total === 1 ? "" : "en"} insgesamt.`, "success");
+          setStatus(usersStatus, search
+            ? `${total} Konto/Konten für „${search}“ gefunden.`
+            : `${total} Konto${total === 1 ? "" : "en"} insgesamt.`, "success");
           const lastPage = Math.max(1, Math.ceil(total / perPage));
           document.querySelector("#page-label").textContent = `Seite ${page} von ${lastPage}`;
           document.querySelector("#previous-page").disabled = page <= 1;
@@ -1170,6 +1759,12 @@
             });
             const actions = document.createElement("div");
             actions.className = "support-ticket-actions";
+            const personButton = document.createElement("button");
+            personButton.type = "button";
+            personButton.className = "secondary";
+            personButton.textContent = "Personenakte";
+            personButton.addEventListener("click", () => openPersonProfile(thread.user_id));
+            actions.append(personButton);
             const addTicketAction = (label, action, confirmation = null) => {
               const button = document.createElement("button");
               button.type = "button";
@@ -1209,6 +1804,19 @@
               content.textContent = `${message.sender_is_admin ? "Wertweit-Support" : thread.email}: ${message.body}`;
               ticket.append(content);
             }
+            const privateNotes = document.createElement("div");
+            privateNotes.className = "support-note-panel";
+            const noteHeading = document.createElement("h4");
+            noteHeading.textContent = "Interne Ticketnotizen";
+            const noteNotice = document.createElement("p");
+            noteNotice.className = "intro";
+            noteNotice.textContent = "Nur für Admins sichtbar; diese Notizen werden nicht an den Nutzer gesendet.";
+            privateNotes.append(noteHeading, noteNotice);
+            renderPrivateAdminNotes(privateNotes, thread.internalNotes ?? [], "ticket", thread.id, supportStatus, async () => {
+              activeSupportThreadId = thread.id;
+              await loadSupport();
+            });
+            ticket.append(privateNotes);
             const form = document.createElement("form");
             form.className = "support-reply";
             form.hidden = thread.status !== "in_progress" || !isClaimedByMe;
@@ -1415,7 +2023,7 @@
         event.preventDefault();
         const button = document.querySelector("#save-invoice-customer");
         setBusy(button, true);
-        setStatus(invoiceStatus, "Kundenkonto wird gespeichert …");
+        setStatus(customerStatus, "Kundenkonto wird gespeichert …");
         try {
           const { customer } = await callAdmin("save-invoice-customer", {
             name: document.querySelector("#invoice-customer-name").value,
@@ -1424,21 +2032,21 @@
             postalCode: document.querySelector("#invoice-customer-postal-code").value,
             city: document.querySelector("#invoice-customer-city").value,
             country: document.querySelector("#invoice-customer-country").value,
+            proCustomer: document.querySelector("#invoice-customer-pro").value === "true",
           });
           selectedInvoiceCustomer = customer;
-          invoiceCustomers.push(customer);
-          renderInvoiceCustomerOptions(customer.id);
+          await loadInvoiceCustomerOptions(customer.id);
           const customerListLoaded = await loadInvoiceCustomers();
           document.querySelector("#invoice-customer-form").reset();
           document.querySelector("#invoice-customer-country").value = "Deutschland";
           document.querySelector(".invoice-customer-form").open = false;
           if (customerListLoaded) {
-            setStatus(invoiceStatus, `Kundenkonto „${customer.name}“ wurde gespeichert und ausgewählt.`, "success");
+            setStatus(customerStatus, `Kundenkonto „${customer.name}“ wurde gespeichert und ausgewählt.`, "success");
           } else {
-            setStatus(invoiceStatus, `Kundenkonto „${customer.name}“ wurde gespeichert; die Kundenliste konnte nicht neu geladen werden.`, "error");
+            setStatus(customerStatus, `Kundenkonto „${customer.name}“ wurde gespeichert; die Kundenliste konnte nicht neu geladen werden.`, "error");
           }
         } catch (error) {
-          setStatus(invoiceStatus, error.message, "error");
+          setStatus(customerStatus, error.message, "error");
         } finally {
           setBusy(button, false);
         }
@@ -1494,6 +2102,44 @@
 
       document.querySelector("#add-invoice-item").addEventListener("click", addInvoiceItemRow);
       document.querySelector("#refresh-invoices").addEventListener("click", loadInvoiceWorkspace);
+      document.querySelector("#refresh-private-sales").addEventListener("click", loadPrivateSales);
+      document.querySelector("#search-users").addEventListener("click", () => {
+        page = 1;
+        loadUsers();
+      });
+      document.querySelector("#user-search").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          page = 1;
+          loadUsers();
+        }
+      });
+      document.querySelector("#back-to-people").addEventListener("click", () => {
+        setAdminPage("people");
+      });
+      document.querySelector("#private-profile-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-private-profile");
+        setBusy(button, true);
+        setStatus(document.querySelector("#private-profile-status"), "Private Angaben werden gespeichert …");
+        try {
+          await callAdmin("save-private-sale-settings", {
+            sellerName: document.querySelector("#private-seller-name").value,
+            sellerEmail: document.querySelector("#private-seller-email").value,
+          });
+          setStatus(document.querySelector("#private-profile-status"), "Private Verkäuferangaben gespeichert.", "success");
+        } catch (error) {
+          setStatus(document.querySelector("#private-profile-status"), error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+      for (const button of document.querySelectorAll("[data-admin-tab]")) {
+        button.addEventListener("click", () => {
+          const requestedTab = button.dataset.adminTab;
+          setAdminPage(requestedTab);
+        });
+      }
       document.querySelector("#invoice-customer").addEventListener("change", (event) => {
         selectedInvoiceCustomer = invoiceCustomers.find((customer) => customer.id === event.currentTarget.value) ??
           (selectedInvoiceCustomer?.id === event.currentTarget.value ? selectedInvoiceCustomer : null);
@@ -1511,6 +2157,10 @@
         reloadInvoiceList();
       });
       document.querySelector("#filter-customers").addEventListener("click", () => {
+        customerPage = 1;
+        loadInvoiceCustomers();
+      });
+      document.querySelector("#customer-tier-filter").addEventListener("change", () => {
         customerPage = 1;
         loadInvoiceCustomers();
       });
@@ -1543,17 +2193,16 @@
             postalCode: document.querySelector("#edit-customer-postal-code").value,
             city: document.querySelector("#edit-customer-city").value,
             country: document.querySelector("#edit-customer-country").value,
+            proCustomer: document.querySelector("#edit-customer-pro").value === "true",
           });
-          const index = invoiceCustomers.findIndex((entry) => entry.id === customer.id);
-          if (index >= 0) invoiceCustomers[index] = customer;
           if (selectedInvoiceCustomer?.id === customer.id) selectedInvoiceCustomer = customer;
-          renderInvoiceCustomerOptions(customer.id);
+          await loadInvoiceCustomerOptions(customer.id);
           const customerListLoaded = await loadInvoiceCustomers();
           document.querySelector("#invoice-customer-dialog").close();
           if (customerListLoaded) {
-            setStatus(invoiceStatus, "Kundenkonto aktualisiert. Bereits erstellte Rechnungen bleiben unverändert.", "success");
+            setStatus(customerStatus, "Kundenkonto aktualisiert. Bereits erstellte Rechnungen bleiben unverändert.", "success");
           } else {
-            setStatus(invoiceStatus, "Kundenkonto aktualisiert, aber die Kundenliste konnte nicht neu geladen werden.", "error");
+            setStatus(customerStatus, "Kundenkonto aktualisiert, aber die Kundenliste konnte nicht neu geladen werden.", "error");
           }
         } catch (error) {
           setStatus(document.querySelector("#edit-customer-status"), error.message, "error");
@@ -1605,7 +2254,64 @@
         addInvoiceItemRow(product);
         setStatus(invoiceStatus, `„${product.name}“ wurde als Rechnungsposition eingefügt.`);
       });
+      document.querySelector("#add-private-sale-item").addEventListener("click", () => addPrivateSaleItemRow());
+      document.querySelector("#private-customer-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-private-customer");
+        setBusy(button, true);
+        setStatus(document.querySelector("#private-sale-status"), "Privatkundschaft wird gespeichert …");
+        try {
+          const { customer } = await callAdmin("save-private-sale-customer", {
+            name: document.querySelector("#private-customer-name").value,
+            email: document.querySelector("#private-customer-email").value,
+          });
+          await loadPrivateSales();
+          document.querySelector("#private-sale-customer").value = customer.id;
+          document.querySelector("#private-customer-form").reset();
+          document.querySelector("#private-sale-status").textContent = `${customer.name} wurde gespeichert und ausgewählt.`;
+        } catch (error) {
+          setStatus(document.querySelector("#private-sale-status"), error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+      document.querySelector("#private-sale-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#create-private-sale");
+        const printWindow = window.open("about:blank", "_blank");
+        const items = [...document.querySelectorAll("#private-sale-items tr")].map((row) => ({
+          description: row.querySelector(".private-item-description").value,
+          quantity: row.querySelector(".private-item-quantity").value,
+          unitPrice: row.querySelector(".private-item-price").value,
+        }));
+        setBusy(button, true);
+        setStatus(document.querySelector("#private-sale-status"), "Privater Verkaufsbeleg wird gespeichert …");
+        try {
+          const { receipt } = await callAdmin("create-private-sale-receipt", {
+            customerId: document.querySelector("#private-sale-customer").value,
+            receiptDate: document.querySelector("#private-sale-date").value,
+            note: document.querySelector("#private-sale-note").value,
+            items,
+          });
+          await loadPrivateSales();
+          if (printWindow) printPrivateReceipt(receipt, printWindow);
+          setStatus(
+            document.querySelector("#private-sale-status"),
+            `Privater Beleg ${receipt.receipt_number} wurde gespeichert.${printWindow ? " Im Druckdialog kannst du „Als PDF sichern“ auswählen." : " Er ist im Archiv verfügbar; erlaube Pop-ups für den direkten Druck."}`,
+            "success",
+          );
+          document.querySelector("#private-sale-items").replaceChildren();
+          addPrivateSaleItemRow();
+          document.querySelector("#private-sale-note").value = "";
+        } catch (error) {
+          printWindow?.close();
+          setStatus(document.querySelector("#private-sale-status"), error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
       addInvoiceItemRow();
+      addPrivateSaleItemRow();
 
       document.querySelector("#refresh-metrics").addEventListener("click", loadMetrics);
       document.querySelector("#refresh-users").addEventListener("click", loadUsers);
