@@ -78,6 +78,22 @@
     .support-reply textarea { min-height: 64px; }
     .email-compose { display: grid; gap: 13px; margin-top: 18px; }
     .email-compose textarea { min-height: 150px; }
+    .email-draft-assistant { margin-top: 18px; padding: 16px; border: 1px solid var(--line); background: #f8faf6; }
+    .email-draft-assistant h3 { margin: 0; font-size: 16px; }
+    .email-draft-assistant .invoice-fields { margin-top: 12px; }
+    .email-service-confirmation { align-items: flex-start; margin: 0; }
+    .email-service-confirmation input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--leaf); }
+    .people-directory { display: grid; gap: 10px; margin-top: 18px; }
+    .person-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 15px; border: 1px solid var(--line); background: white; }
+    .person-card-main { display: grid; gap: 4px; min-width: 0; }
+    .person-card-main strong { overflow-wrap: anywhere; }
+    .person-card-meta { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .person-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .person-card-tag { padding: 3px 8px; border-radius: 999px; background: #eef2ed; color: #536057; font-size: 10px; font-weight: 700; }
+    .person-card-tag.pro { background: #edf3d1; color: #475c16; }
+    .person-priority-notes { margin: 18px 0; padding: 18px; border: 1px solid #d9e2d7; background: #f8faf6; }
+    .person-priority-notes h3 { margin: 0; color: var(--forest); }
+    .person-priority-notes .notice { margin: 8px 0 12px; }
     .invoice-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; margin-top: 18px; }
     .invoice-fields .wide { grid-column: 1 / -1; }
     .invoice-logo-preview { display: flex; align-items: center; gap: 12px; }
@@ -132,7 +148,9 @@
       </div>
       <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
         <button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button>
-        <button type="button" data-admin-tab="people">Personen / Datenbank</button>
+        <button type="button" data-admin-tab="people">Personen</button>
+        <button type="button" data-admin-tab="database">Datenbank</button>
+        <button type="button" data-admin-tab="email">E-Mail</button>
         <button type="button" data-admin-tab="support">Support</button>
         <button type="button" data-admin-tab="settings">Einstellungen</button>
         <button type="button" data-admin-tab="invoices">App-Rechnungen</button>
@@ -356,14 +374,22 @@
         <h3>Archiv privater Verkaufsbelege</h3>
         <div class="table-wrap"><table><thead><tr><th>Belegnummer</th><th>Datum</th><th>Kunde</th><th>Betrag</th><th>Aktionen</th></tr></thead><tbody id="private-sale-list"></tbody></table></div>
       </section>
-      <section class="card" data-admin-page="people" aria-labelledby="accounts-title">
-        <div class="card-heading"><div><h2 id="accounts-title">Personen-Datenbank</h2><p class="intro">Konten, Pro-Freigaben, App-Nutzung, Rechnungen und Support pro Person ansehen.</p></div><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
+      <section class="card" data-admin-page="people" aria-labelledby="people-title">
+        <div class="card-heading"><div><h2 id="people-title">Personen</h2><p class="intro">Jedes App-Konto einzeln im Blick; öffne eine Personenakte für Details, Support und interne Hinweise.</p></div><button id="refresh-people" class="secondary" type="button">Aktualisieren</button></div>
+        <div class="invoice-filter-grid">
+          <label>Person nach E-Mail suchen<input id="person-search" type="search" maxlength="160" autocomplete="off"></label>
+          <button id="search-people" type="button">Suchen</button>
+        </div>
+        <p id="people-status" class="status" role="status"></p>
+        <div id="people-list" class="people-directory"></div>
+        <div class="pagination"><button id="people-previous-page" class="secondary" type="button">Zurück</button><span id="people-page-label"></span><button id="people-next-page" class="secondary" type="button">Weiter</button></div>
+      </section>
+      <section class="card" data-admin-page="database" aria-labelledby="accounts-title">
+        <div class="card-heading"><div><h2 id="accounts-title">Datenbank &amp; Benutzerverwaltung</h2><p class="intro">App-Konten suchen, einladen und verwalten. Neue Konten werden in Supabase Auth angelegt.</p></div><button id="refresh-users" class="secondary" type="button">Aktualisieren</button></div>
         <form id="create-user-form" class="fields">
-          <label>Nutzer einladen oder direkt anlegen<input id="new-user-email" type="email" autocomplete="email" required></label>
-          <label class="setting"><input id="new-user-skip-confirmation" type="checkbox"> Konto sofort aktiv anlegen (ohne E-Mail-Bestätigung)</label>
-          <label>Initialpasswort (optional, nur bei direkter Anlage)<input id="new-user-password" type="text" autocomplete="new-password" placeholder="leer = automatisch generieren"></label>
-          <label class="setting"><input id="new-user-admin" type="checkbox"> Als Admin einladen / anlegen (voller Zugriff auf Nutzerverwaltung)</label>
-          <button id="create-user-button" type="submit">Einladung senden / Konto anlegen</button>
+          <label>E-Mail-Adresse des neuen App-Nutzers<input id="new-user-email" type="email" autocomplete="email" maxlength="254" required></label>
+          <p class="notice">Es wird eine Supabase-Einladung mit Link zum sicheren Setzen des eigenen Passworts verschickt. Admin-Rechte werden nicht vergeben.</p>
+          <button id="create-user-button" type="submit">Einladung senden</button>
         </form>
         <p id="create-user-status" class="status" role="status"></p>
         <div class="invoice-filter-grid">
@@ -383,15 +409,17 @@
         <div class="card-heading"><div><h2 id="person-detail-title">Personenakte</h2><p class="intro">Kontodaten und zugehörige App-Daten auf einer Seite.</p></div><button id="back-to-people" class="secondary" type="button">Zur Personenliste</button></div>
         <p id="person-profile-status" class="status" role="status"></p>
         <div id="person-profile-summary" class="metrics-grid"></div>
+        <section class="person-priority-notes" aria-labelledby="person-notes-title"><h3 id="person-notes-title">Wichtige interne Hinweise</h3><p class="notice">Nur für Admins sichtbar und wird nicht an die Person gesendet.</p><div id="person-private-notes"></div></section>
         <p id="person-store-note" class="notice"></p>
         <section><h3>App-Aktivität</h3><p class="notice">Die App speichert derzeit Anmeldungen und App-Starts, aber keine vollständige Klick- oder Funktionshistorie.</p><div id="person-activity"></div></section>
         <section><h3>App-Rechnungen</h3><p class="intro">Zuordnung anhand der E-Mail-Adresse; sie ist kein festes Kontolink.</p><div class="table-wrap"><table><thead><tr><th>Nummer</th><th>Datum</th><th>Betrag</th><th>Status</th></tr></thead><tbody id="person-invoices"></tbody></table></div></section>
         <section><h3>Supportfälle und Nachrichten</h3><div id="person-support-cases"></div></section>
-        <section><h3>Interne Personen-Notizen</h3><p class="notice">Nur für Admins sichtbar, nicht an die Person gesendet.</p><div id="person-private-notes"></div></section>
       </section>
-      <section class="card" data-admin-page="people" aria-labelledby="email-title">
+      <section class="card" data-admin-page="email" aria-labelledby="email-title">
         <div class="card-heading"><h2 id="email-title">E-Mail senden</h2></div>
+        <p class="intro">Konten zuerst auf der Datenbankseite auswählen. Werbenachrichten gehen nur an angemeldete Empfänger.</p>
         <p class="notice">Absender: wertweitoffiziell@gmail.com. Einzelne Konten: nur notwendige Konto- oder Servicenachrichten senden. Rundmails gehen ausschließlich an Nutzer, die Produktneuigkeiten in der App ausdrücklich eingeschaltet haben. Jede Rundmail enthält einen Abmeldehinweis.</p>
+        <p id="email-selected-count" class="status" role="status"></p>
         <form id="email-form" class="email-compose">
           <label>Empfänger
             <select id="email-audience">
@@ -399,6 +427,32 @@
               <option value="newsletter">Angemeldete Rundmail-Empfänger</option>
             </select>
           </label>
+          <div id="email-service-confirmation-wrap">
+            <label class="setting email-service-confirmation"><input id="email-service-confirmation" type="checkbox" required> Ich bestätige, dass diese Nachricht keine Werbung enthält und für die ausgewählten Konten eine notwendige Konto- oder Servicenachricht ist.</label>
+          </div>
+          <section class="email-draft-assistant" aria-labelledby="email-draft-title">
+            <h3 id="email-draft-title">Lokaler E-Mail-Textassistent</h3>
+            <p class="notice">Erstellt Entwürfe aus festen Vorlagen direkt in diesem Browser. Keine KI, kein API-Schlüssel und keine Übertragung deiner Stichpunkte. Prüfe und bearbeite den Entwurf vor dem Versand.</p>
+            <div class="invoice-fields">
+              <label>E-Mail-Art
+                <select id="email-draft-type">
+                  <option value="service">Service- oder Kontomitteilung</option>
+                  <option value="support">Support-Antwort</option>
+                  <option value="invoice">Rechnung oder Zahlungserinnerung</option>
+                  <option value="marketing">Produktneuigkeit oder Werbung (nur Opt-in)</option>
+                </select>
+              </label>
+              <label>Ton
+                <select id="email-draft-tone">
+                  <option value="friendly">Freundlich</option>
+                  <option value="formal">Formell</option>
+                  <option value="direct">Kurz und sachlich</option>
+                </select>
+              </label>
+              <label class="wide">Stichpunkte und konkrete Informationen<textarea id="email-draft-details" maxlength="2000" placeholder="Zum Beispiel: neue Funktion, Startdatum, Aktionsbedingungen oder nächster Support-Schritt"></textarea></label>
+              <div class="wide"><button id="generate-email-draft" class="secondary" type="button">Entwurf aus Vorlage erstellen</button></div>
+            </div>
+          </section>
           <label>Betreff<input id="email-subject" maxlength="150" required></label>
           <label>Nachricht<textarea id="email-body" maxlength="10000" required></textarea></label>
           <button id="send-email-button" type="submit">E-Mail senden</button>
@@ -459,6 +513,8 @@
     const supportThreads = document.querySelector("#support-threads");
     const metricsStatus = document.querySelector("#metrics-status");
     const proOfferStatus = document.querySelector("#pro-offer-status");
+    const peopleStatus = document.querySelector("#people-status");
+    const peopleList = document.querySelector("#people-list");
     const emailStatus = document.querySelector("#email-status");
     const invoiceStatus = document.querySelector("#invoice-status");
     const customerStatus = document.querySelector("#customer-status");
@@ -466,6 +522,8 @@
     const perPage = 25;
     let page = 1;
     let total = 0;
+    let peoplePage = 1;
+    let peopleTotal = 0;
     let activeSupportThreadId = null;
     let invoiceLogoDataUrl = null;
     let invoiceCustomers = [];
@@ -564,13 +622,15 @@
         loginView.hidden = true;
         dashboard.hidden = false;
         setAdminPage("dashboard");
-        await Promise.all([loadSettings(settings), loadUsers(), loadSupport(), loadMetrics(), loadInvoiceWorkspace(), loadPrivateSales()]);
+        await Promise.all([loadSettings(settings), loadUsers(), loadPeopleDirectory(), loadSupport(), loadMetrics(), loadInvoiceWorkspace(), loadPrivateSales()]);
       }
 
       function setAdminPage(page, activeTab = page) {
         const pageText = {
           dashboard: ["Admin-Dashboard", "Kennzahlen und den Zustand der App im Blick behalten."],
-          people: ["Personen / Datenbank", "Konten, Pro-Freigaben, Verlauf und interne Notizen verwalten."],
+          people: ["Personen", "App-Konten einzeln finden und ihre Personenakten öffnen."],
+          database: ["Datenbank", "Konten in Supabase verwalten und neue App-Nutzer einladen."],
+          email: ["E-Mail", "Entwürfe erstellen, prüfen und gezielt versenden."],
           "person-detail": ["Personenakte", "Zugehörige Konto-, Nutzungs-, Rechnungs- und Supportdaten."],
           support: ["Support-Postfach", "Tickets prüfen, übernehmen und intern dokumentieren."],
           settings: ["Einstellungen", "Wartung, Pro-Angebot und Rechnungsabsender konfigurieren."],
@@ -1104,53 +1164,72 @@
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>Rechnung ${escapeHtml(invoice.invoice_number)}</title>
             <style>
-              @page { size: A4; margin: 18mm; }
+              @page { size: A4; margin: 16mm 17mm 18mm; }
               * { box-sizing: border-box; }
-              body { margin: 0; color: #18231e; font: 12px/1.55 Arial, sans-serif; }
-              .toolbar { display: flex; justify-content: flex-end; margin-bottom: 24px; }
-              .toolbar button { padding: 10px 16px; border: 0; border-radius: 4px; background: #123c31; color: #fff; font-weight: 700; }
-              header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 24px; border-bottom: 2px solid #123c31; }
-              header img { max-width: 170px; max-height: 72px; object-fit: contain; }
+              body { margin: 0; color: #1e2b25; font: 11px/1.55 Arial, Helvetica, sans-serif; }
+              .toolbar { display: flex; justify-content: flex-end; margin: 0 auto 22px; }
+              .toolbar button { padding: 11px 17px; border: 0; border-radius: 4px; background: #123c31; color: #fff; font-weight: 700; cursor: pointer; }
+              .invoice-document { min-height: 260mm; display: flex; flex-direction: column; }
+              header { display: grid; grid-template-columns: 1fr 1.15fr; align-items: start; gap: 28px; padding-bottom: 20px; border-bottom: 2px solid #123c31; }
+              .brand { display: grid; align-content: start; gap: 9px; color: #123c31; font-size: 8px; font-weight: 700; letter-spacing: .16em; }
+              header img { display: block; max-width: 170px; max-height: 66px; object-fit: contain; object-position: left center; }
               header address, .customer address { font-style: normal; }
-              .sender { max-width: 52%; text-align: right; color: #516057; font-size: 10px; }
-              .sender strong { display: block; color: #18231e; font-size: 13px; }
-              .address-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 34px 0; }
-              .eyebrow { margin-bottom: 8px; color: #69746d; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-              .customer strong { display: block; margin-bottom: 3px; }
-              .invoice-meta { margin-top: 22px; }
-              h1 { margin: 0 0 8px; font-size: 30px; }
-              .invoice-meta p { margin: 3px 0; }
-              table { width: 100%; margin-top: 25px; border-collapse: collapse; }
-              th, td { padding: 10px 8px; border-bottom: 1px solid #dfe4df; text-align: left; vertical-align: top; }
-              th { background: #f4f5ef; color: #536057; font-size: 9px; text-transform: uppercase; }
+              .sender { color: #536057; font-size: 9px; text-align: right; }
+              .sender strong { display: block; margin-bottom: 3px; color: #1e2b25; font-size: 12px; }
+              .address-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 36px; margin: 30px 0 26px; }
+              .eyebrow { margin-bottom: 8px; color: #66736b; font-size: 8px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+              .customer { padding-top: 2px; }
+              .customer strong { display: block; margin-bottom: 5px; font-size: 12px; }
+              .invoice-meta { padding: 16px 18px; border-left: 3px solid #1c6a4f; background: #f4f6f2; }
+              h1 { margin: 0 0 12px; color: #123c31; font-size: 27px; font-weight: 700; letter-spacing: -.02em; }
+              .invoice-meta dl { display: grid; gap: 5px; margin: 0; }
+              .invoice-meta dl div { display: flex; justify-content: space-between; gap: 12px; }
+              .invoice-meta dt { color: #647067; }
+              .invoice-meta dd { margin: 0; font-weight: 700; text-align: right; }
+              .section-title { margin: 0 0 5px; color: #123c31; font-size: 12px; font-weight: 700; }
+              table { width: 100%; margin-top: 8px; border-collapse: collapse; }
+              thead { display: table-header-group; }
+              tr { break-inside: avoid; page-break-inside: avoid; }
+              th, td { padding: 10px 9px; border-bottom: 1px solid #dfe4df; text-align: left; vertical-align: top; }
+              th { background: #f0f3ee; color: #536057; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+              tbody tr:nth-child(even) { background: #fafbf9; }
               .number { text-align: right; white-space: nowrap; }
-              .total { display: flex; justify-content: flex-end; margin: 18px 0 30px; }
-              .total div { min-width: 230px; display: flex; justify-content: space-between; gap: 30px; padding: 12px 0; border-top: 2px solid #123c31; font-size: 16px; font-weight: 700; }
-              .note { margin-top: 26px; white-space: normal; }
-              footer { margin-top: 45px; padding-top: 14px; border-top: 1px solid #dfe4df; color: #59645d; font-size: 10px; }
-              @media print { .toolbar { display: none; } }
+              .total { display: grid; justify-content: end; gap: 8px; margin: 18px 0 22px; }
+              .total-line { min-width: 260px; display: flex; justify-content: space-between; gap: 28px; padding: 12px 0; border-top: 2px solid #123c31; color: #123c31; font-size: 15px; font-weight: 700; }
+              .tax-note { max-width: 340px; color: #536057; font-size: 9px; text-align: right; }
+              .payment { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 4px; padding: 15px 17px; border: 1px solid #dfe4df; border-radius: 3px; background: #fbfcfa; break-inside: avoid; }
+              .payment h2 { margin: 0 0 6px; color: #123c31; font-size: 11px; }
+              .payment p { margin: 0; }
+              .payment-details p { margin: 0; }
+              .note { margin: 19px 0 0; padding-top: 12px; border-top: 1px solid #dfe4df; white-space: normal; }
+              footer { margin-top: auto; padding-top: 13px; color: #59645d; font-size: 8px; line-height: 1.6; }
+              footer div { padding-top: 10px; border-top: 1px solid #dfe4df; }
+              @media screen { body { max-width: 920px; margin: 28px auto; padding: 0 24px; } }
+              @media print { .toolbar { display: none; } body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+              @media screen and (max-width: 600px) { header, .address-grid, .payment { grid-template-columns: 1fr; } .sender { text-align: left; } }
             </style>
           </head>
           <body>
             <div class="toolbar"><button onclick="window.print()">PDF drucken oder speichern</button></div>
-            <header>
-              <img src="${escapeHtml(logo)}" alt="Rechnungslogo">
-              <address class="sender"><strong>${escapeHtml(seller.name)}</strong>${escapeHtml(seller.street)}<br>${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)}<br>${escapeHtml(seller.country)}<br>${sellerContact}</address>
-            </header>
-            <section class="address-grid">
-              <div class="customer"><div class="eyebrow">Rechnung an</div><strong>${escapeHtml(customer.name)}</strong><address>${escapeHtml(customer.street)}<br>${escapeHtml(customer.postalCode)} ${escapeHtml(customer.city)}<br>${escapeHtml(customer.country)}${customer.email ? `<br>${escapeHtml(customer.email)}` : ""}</address></div>
-              <div class="invoice-meta"><h1>Rechnung</h1><p><strong>Rechnungsnummer:</strong> ${escapeHtml(invoice.invoice_number)}</p><p><strong>Rechnungsdatum:</strong> ${escapeHtml(formatInvoiceDate(invoice.invoice_date))}</p><p><strong>Leistungsdatum:</strong> ${escapeHtml(formatInvoiceDate(invoice.service_date))}</p><p><strong>Fällig am:</strong> ${escapeHtml(formatInvoiceDate(invoice.due_date))}</p></div>
-            </section>
-            <table>
-              <thead><tr><th>Beschreibung</th><th class="number">Menge</th><th class="number">Einzelpreis</th><th class="number">Betrag</th></tr></thead>
-              <tbody>${itemRows}</tbody>
-            </table>
-            <div class="total"><div><span>Gesamtbetrag</span><span>${formatInvoiceAmount(invoice.total_cents)}</span></div></div>
-            <p>${escapeHtml(seller.taxNote)}</p>
-            <p>Bitte überweise den Rechnungsbetrag bis zum ${escapeHtml(formatInvoiceDate(invoice.due_date))}.</p>
-            ${bankDetails}
-            ${note}
-            <footer>${escapeHtml(seller.name)} · ${escapeHtml(seller.street)} · ${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)} · ${escapeHtml(seller.country)} · ${escapeHtml(seller.email)}</footer>
+            <main class="invoice-document">
+              <header>
+                <div class="brand"><img src="${escapeHtml(logo)}" alt="Rechnungslogo"><span>WERTWEIT · RECHNUNG</span></div>
+                <address class="sender"><strong>${escapeHtml(seller.name)}</strong>${escapeHtml(seller.street)}<br>${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)}<br>${escapeHtml(seller.country)}<br>${sellerContact}</address>
+              </header>
+              <section class="address-grid">
+                <div class="customer"><div class="eyebrow">Rechnungsempfänger</div><strong>${escapeHtml(customer.name)}</strong><address>${escapeHtml(customer.street)}<br>${escapeHtml(customer.postalCode)} ${escapeHtml(customer.city)}<br>${escapeHtml(customer.country)}${customer.email ? `<br>${escapeHtml(customer.email)}` : ""}</address></div>
+                <div class="invoice-meta"><div class="eyebrow">Rechnungsdetails</div><h1>Rechnung</h1><dl><div><dt>Rechnungsnummer</dt><dd>${escapeHtml(invoice.invoice_number)}</dd></div><div><dt>Rechnungsdatum</dt><dd>${escapeHtml(formatInvoiceDate(invoice.invoice_date))}</dd></div><div><dt>Leistungsdatum</dt><dd>${escapeHtml(formatInvoiceDate(invoice.service_date))}</dd></div><div><dt>Zahlbar bis</dt><dd>${escapeHtml(formatInvoiceDate(invoice.due_date))}</dd></div></dl></div>
+              </section>
+              <div class="section-title">Abgerechnete Leistungen</div>
+              <table>
+                <thead><tr><th>Beschreibung</th><th class="number">Menge</th><th class="number">Einzelpreis</th><th class="number">Betrag</th></tr></thead>
+                <tbody>${itemRows}</tbody>
+              </table>
+              <div class="total"><div class="total-line"><span>Gesamtbetrag</span><span>${formatInvoiceAmount(invoice.total_cents)}</span></div><div class="tax-note">${escapeHtml(seller.taxNote)}</div></div>
+              <section class="payment"><div><h2>Zahlungsinformationen</h2><p>Bitte überweise den Rechnungsbetrag bis zum <strong>${escapeHtml(formatInvoiceDate(invoice.due_date))}</strong>.</p></div><div class="payment-details">${bankDetails || "<p>Für Rückfragen zur Zahlung wende dich bitte an den Rechnungsaussteller.</p>"}</div></section>
+              ${note}
+              <footer><div>${escapeHtml(seller.name)} · ${escapeHtml(seller.street)} · ${escapeHtml(seller.postalCode)} ${escapeHtml(seller.city)} · ${escapeHtml(seller.country)} · ${escapeHtml(seller.email)}</div></footer>
+            </main>
           </body>
           </html>`;
         printWindow.document.open();
@@ -1450,9 +1529,11 @@
       function renderPersonProfile(profile) {
         const summary = document.querySelector("#person-profile-summary");
         summary.replaceChildren();
+        const fullName = typeof profile.name === "string" ? profile.name.trim() : "";
+        document.querySelector("#person-detail-title").textContent = fullName || profile.email || "Personenakte";
         const values = [
-          ["Name", profile.name || "Nicht angegeben"],
-          ["E-Mail", profile.email || "Keine E-Mail"],
+          ...(fullName ? [["Name", fullName]] : []),
+          ...(profile.email ? [["E-Mail", profile.email]] : []),
           ["Konto erstellt", formatDate(profile.createdAt)],
           ["Letzte Anmeldung", formatDate(profile.lastSignInAt)],
           ["E-Mail bestätigt", profile.emailConfirmedAt ? "Ja" : "Nein"],
@@ -1579,6 +1660,71 @@
         }
       }
 
+      async function loadPeopleDirectory() {
+        setBusy(document.querySelector("#refresh-people"), true);
+        setStatus(peopleStatus, "Personen werden geladen …");
+        try {
+          const search = document.querySelector("#person-search").value.trim();
+          const result = await callAdmin("list-users", { page: peoplePage, perPage, search });
+          peopleTotal = Number.isInteger(result.total) ? result.total : 0;
+          peopleList.replaceChildren();
+          if (result.users.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "intro";
+            empty.textContent = "Keine Personen für diese Suche gefunden.";
+            peopleList.append(empty);
+          }
+          for (const user of result.users) {
+            const card = document.createElement("article");
+            card.className = "person-card";
+            const main = document.createElement("div");
+            main.className = "person-card-main";
+            const heading = document.createElement("strong");
+            heading.textContent = user.name || user.email || "Konto ohne E-Mail";
+            main.append(heading);
+            if (user.name && user.email) {
+              const email = document.createElement("span");
+              email.className = "person-card-meta";
+              email.textContent = user.email;
+              main.append(email);
+            }
+            const meta = document.createElement("span");
+            meta.className = "person-card-meta";
+            meta.textContent = `Konto erstellt: ${formatDate(user.createdAt)} · Letzte Anmeldung: ${formatDate(user.lastSignInAt)}`;
+            main.append(meta);
+            const tags = document.createElement("div");
+            tags.className = "person-card-tags";
+            for (const label of [
+              user.blocked ? "Gesperrt" : "Aktiv",
+              user.emailConfirmedAt ? "E-Mail bestätigt" : "E-Mail nicht bestätigt",
+              user.proUntil && new Date(user.proUntil) > new Date() ? `Pro bis ${formatDate(user.proUntil)}` : "Ohne Admin-Pro",
+            ]) {
+              const tag = document.createElement("span");
+              tag.className = `person-card-tag${label.startsWith("Pro bis ") ? " pro" : ""}`;
+              tag.textContent = label;
+              tags.append(tag);
+            }
+            main.append(tags);
+            const open = document.createElement("button");
+            open.type = "button";
+            open.className = "secondary";
+            open.textContent = "Personenakte öffnen";
+            open.addEventListener("click", () => openPersonProfile(user.id));
+            card.append(main, open);
+            peopleList.append(card);
+          }
+          setStatus(peopleStatus, `${peopleTotal} Person${peopleTotal === 1 ? "" : "en"}${search ? ` für „${search}“` : ""}.`, "success");
+          const lastPage = Math.max(1, Math.ceil(peopleTotal / perPage));
+          document.querySelector("#people-page-label").textContent = `Seite ${peoplePage} von ${lastPage}`;
+          document.querySelector("#people-previous-page").disabled = peoplePage <= 1;
+          document.querySelector("#people-next-page").disabled = peoplePage >= lastPage;
+        } catch (error) {
+          setStatus(peopleStatus, error.message, "error");
+        } finally {
+          setBusy(document.querySelector("#refresh-people"), false);
+        }
+      }
+
       async function loadUsers() {
         setBusy(document.querySelector("#refresh-users"), true);
         setStatus(usersStatus, "Konten werden geladen …");
@@ -1598,6 +1744,7 @@
               if (selectUser.checked) selectedUserIds.add(user.id);
               else selectedUserIds.delete(user.id);
               setStatus(usersStatus, `${selectedUserIds.size} Konto/Konten für den E-Mail-Versand ausgewählt.`);
+              updateEmailAudienceNotice();
             });
             selectCell.append(selectUser);
             row.append(selectCell);
@@ -1860,33 +2007,27 @@
         event.preventDefault();
         const button = document.querySelector("#create-user-button");
         setBusy(button, true);
-        const skipEmailConfirmation = document.querySelector("#new-user-skip-confirmation").checked;
-        const password = document.querySelector("#new-user-password").value.trim();
-        setStatus(document.querySelector("#create-user-status"), skipEmailConfirmation ? "Konto wird direkt aktiviert …" : "Einladung wird gesendet …");
+        setStatus(document.querySelector("#create-user-status"), "Einladung wird gesendet …");
         try {
           const result = await callAdmin("create-user", {
             email: document.querySelector("#new-user-email").value.trim(),
-            admin: document.querySelector("#new-user-admin").checked,
-            skipEmailConfirmation,
-            password: password || undefined,
+            admin: false,
+            skipEmailConfirmation: false,
           });
           const { user } = result;
-          if (skipEmailConfirmation) {
-            const passwordHint = result.password
-              ? ` Initialpasswort: ${result.password}`
-              : " Das Konto wurde direkt aktiviert, ohne dass eine E-Mail-Bestätigung nötig war.";
-            setStatus(document.querySelector("#create-user-status"), `${result.admin ? "Admin-Konto" : "Konto"} für ${user.email} ohne E-Mail-Bestätigung angelegt.${passwordHint}`, "success");
-          } else {
-            const role = document.querySelector("#new-user-admin").checked ? "Admin-Einladung" : "Einladung";
-            const message = result.resent
-              ? result.emailType === "recovery"
-                ? `Das Konto für ${user.email} ist bereits bestätigt. Ein Link zum Passwort-Setzen wurde an die Adresse gesendet.`
-                : `Bestätigung für ${user.email} erneut gesendet.`
-              : `${role} an ${user.email} gesendet.`;
-            setStatus(document.querySelector("#create-user-status"), message, "success");
-          }
+          const message = result.resent
+            ? result.emailType === "recovery"
+              ? `Für ${user.email} wurde ein Link zum Setzen des Passworts gesendet.`
+              : `Der Bestätigungslink für ${user.email} wurde erneut gesendet.`
+            : `Einladung an ${user.email} gesendet.`;
+          setStatus(document.querySelector("#create-user-status"), message, "success");
           event.currentTarget.reset();
+          document.querySelector("#user-search").value = "";
+          document.querySelector("#person-search").value = "";
+          page = 1;
+          peoplePage = 1;
           await loadUsers();
+          await loadPeopleDirectory();
         } catch (error) {
           setStatus(document.querySelector("#create-user-status"), error.message, "error");
         } finally {
@@ -2107,6 +2248,26 @@
         page = 1;
         loadUsers();
       });
+      document.querySelector("#refresh-people").addEventListener("click", loadPeopleDirectory);
+      document.querySelector("#search-people").addEventListener("click", () => {
+        peoplePage = 1;
+        loadPeopleDirectory();
+      });
+      document.querySelector("#person-search").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          peoplePage = 1;
+          loadPeopleDirectory();
+        }
+      });
+      document.querySelector("#people-previous-page").addEventListener("click", () => {
+        peoplePage -= 1;
+        loadPeopleDirectory();
+      });
+      document.querySelector("#people-next-page").addEventListener("click", () => {
+        peoplePage += 1;
+        loadPeopleDirectory();
+      });
       document.querySelector("#user-search").addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           event.preventDefault();
@@ -2317,10 +2478,68 @@
       document.querySelector("#refresh-users").addEventListener("click", loadUsers);
       document.querySelector("#refresh-support").addEventListener("click", loadSupport);
       document.querySelector("#support-filter").addEventListener("change", loadSupport);
+      const emailAudience = document.querySelector("#email-audience");
+      const emailDraftType = document.querySelector("#email-draft-type");
+      const emailServiceConfirmation = document.querySelector("#email-service-confirmation");
+      const emailServiceConfirmationWrap = document.querySelector("#email-service-confirmation-wrap");
+      function updateEmailAudienceNotice() {
+        const selectedAccounts = emailAudience.value === "selected";
+        emailServiceConfirmationWrap.hidden = !selectedAccounts;
+        emailServiceConfirmation.disabled = !selectedAccounts;
+        if (!selectedAccounts) emailServiceConfirmation.checked = false;
+        const selectedCount = selectedUserIds.size;
+        document.querySelector("#email-selected-count").textContent = selectedCount
+          ? `${selectedCount} Konto/Konten für den Versand ausgewählt. Auswahl auf der Datenbankseite ändern.`
+          : "Noch keine Konten für einen Einzelversand ausgewählt.";
+      }
+      emailAudience.addEventListener("change", updateEmailAudienceNotice);
+      emailDraftType.addEventListener("change", () => {
+        if (emailDraftType.value === "marketing") emailAudience.value = "newsletter";
+        updateEmailAudienceNotice();
+      });
+      updateEmailAudienceNotice();
+      document.querySelector("#generate-email-draft").addEventListener("click", () => {
+        const type = emailDraftType.value;
+        const tone = document.querySelector("#email-draft-tone").value;
+        const details = document.querySelector("#email-draft-details").value.trim() ||
+          "[Bitte hier die konkreten Informationen ergänzen.]";
+        const greeting = tone === "formal" ? "Guten Tag," : "Hallo,";
+        const closing = tone === "formal" ? "Freundliche Grüße" : "Viele Grüße";
+        const signature = `${closing}\nWertweit`;
+        const drafts = {
+          service: {
+            subject: "Wichtige Information zu Wertweit",
+            body: `${greeting}\n\nwir möchten dich über eine wichtige Information zu deinem Wertweit-Konto informieren:\n\n${details}\n\nWenn du Fragen hast, antworte gern auf diese E-Mail.\n\n${signature}`,
+          },
+          support: {
+            subject: "Rückmeldung zu deiner Anfrage bei Wertweit",
+            body: `${greeting}\n\ndanke für deine Nachricht. Zu deinem Anliegen können wir dir Folgendes mitteilen:\n\n${details}\n\nWenn noch etwas offen ist, antworte einfach auf diese E-Mail.\n\n${signature}`,
+          },
+          invoice: {
+            subject: tone === "direct" ? "Information zu deiner Rechnung" : "Deine Rechnung bei Wertweit",
+            body: `${greeting}\n\nhier findest du die Informationen zu deiner Rechnung:\n\n${details}\n\nFalls du den Betrag bereits überwiesen hast, betrachte diese Nachricht bitte als erledigt. Bei Fragen antworte gern auf diese E-Mail.\n\n${signature}`,
+          },
+          marketing: {
+            subject: `Neuigkeiten von Wertweit${details.startsWith("[") ? "" : `: ${details.replace(/\s+/g, " ").slice(0, 75)}`}`,
+            body: `${greeting}\n\nwir möchten dir eine Neuigkeit zu Wertweit vorstellen:\n\n${details}\n\nSchau gern in der App vorbei und entdecke die Neuerung.\n\n${signature}`,
+          },
+        };
+        const draft = drafts[type] ?? drafts.service;
+        document.querySelector("#email-subject").value = draft.subject.slice(0, 150);
+        document.querySelector("#email-body").value = draft.body;
+        if (type === "marketing") emailAudience.value = "newsletter";
+        updateEmailAudienceNotice();
+        setStatus(emailStatus, "Vorlagenentwurf erstellt. Prüfe und bearbeite Betreff und Nachricht vor dem Versand.", "success");
+      });
       document.querySelector("#email-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const audience = document.querySelector("#email-audience").value;
         const userIds = [...selectedUserIds];
+        const category = emailDraftType.value === "marketing" ? "marketing" : "service";
+        if (category === "marketing" && audience !== "newsletter") {
+          setStatus(emailStatus, "Werbe- und Produktmails dürfen nur an angemeldete Rundmail-Empfänger gehen.", "error");
+          return;
+        }
         if (audience === "selected" && userIds.length === 0) {
           setStatus(emailStatus, "Markiere zuerst mindestens ein Konto in der Nutzerliste.", "error");
           return;
@@ -2340,6 +2559,8 @@
         try {
           const result = await callAdmin("send-email", {
             audience,
+            category,
+            servicePurposeConfirmed: audience === "selected" && emailServiceConfirmation.checked,
             userIds: audience === "selected" ? userIds : [],
             subject: document.querySelector("#email-subject").value,
             body: document.querySelector("#email-body").value,
@@ -2360,6 +2581,7 @@
             await loadUsers();
           }
           document.querySelector("#email-form").reset();
+          updateEmailAudienceNotice();
         } catch (error) {
           setStatus(emailStatus, error.message, "error");
         } finally {

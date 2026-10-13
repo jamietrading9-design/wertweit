@@ -109,6 +109,15 @@ Deno.serve(async (request) => {
     if (payload.audience !== "selected" && payload.audience !== "newsletter") {
       return respond({ error: "Invalid email recipient group" }, 400);
     }
+    if (payload.category !== "service" && payload.category !== "marketing") {
+      return respond({ error: "Invalid email category" }, 400);
+    }
+    if (payload.category === "marketing" && payload.audience !== "newsletter") {
+      return respond({ error: "Marketing emails may only be sent to subscribed newsletter recipients" }, 400);
+    }
+    if (payload.audience === "selected" && payload.servicePurposeConfirmed !== true) {
+      return respond({ error: "Confirm that the message is a necessary account or service email before sending to selected accounts" }, 400);
+    }
     if (typeof payload.subject !== "string" || payload.subject.trim().length < 1 ||
         payload.subject.trim().length > 150 || /[\r\n]/.test(payload.subject) || typeof payload.body !== "string" ||
         payload.body.trim().length < 1 || payload.body.trim().length > 10000) {
@@ -301,6 +310,9 @@ Deno.serve(async (request) => {
       users: users.map((user) => ({
         id: user.id,
         email: user.email ?? "",
+        name: typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name.trim()
+          : typeof user.user_metadata?.name === "string" ? user.user_metadata.name.trim() : "",
         createdAt: user.created_at,
         lastSignInAt: user.last_sign_in_at,
         emailConfirmedAt: user.email_confirmed_at,
