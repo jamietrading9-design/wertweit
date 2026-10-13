@@ -207,6 +207,24 @@
             <div class="wide"><button id="save-invoice-customer" type="submit">Kundenkonto speichern</button></div>
           </form>
         </details>
+        <details class="invoice-customer-form">
+          <summary>Gespeicherte Produkte und Leistungen</summary>
+          <form id="invoice-product-form" class="invoice-fields">
+            <input id="invoice-product-id" type="hidden">
+            <label>Produkt oder Leistung<input id="invoice-product-name" maxlength="200" required></label>
+            <label>Standard-Einzelpreis (EUR)<input id="invoice-product-price" type="number" min="0.01" step="0.01" required></label>
+            <div class="wide">
+              <button id="save-invoice-product" type="submit">Produkt speichern</button>
+              <button id="cancel-invoice-product-edit" class="secondary" type="button" hidden>Bearbeitung abbrechen</button>
+            </div>
+          </form>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Produkt / Leistung</th><th>Einzelpreis</th><th>Status</th><th>Aktionen</th></tr></thead>
+              <tbody id="invoice-product-list"></tbody>
+            </table>
+          </div>
+        </details>
         <form id="invoice-form">
           <h3>Rechnung erstellen</h3>
           <div class="invoice-fields">
@@ -223,12 +241,19 @@
             <h3>Positionen</h3>
             <button id="add-invoice-item" class="secondary" type="button">Position hinzufügen</button>
           </div>
+          <div class="invoice-filter-grid">
+            <label>Gespeichertes Produkt
+              <select id="invoice-product-picker"><option value="">Position manuell eingeben</option></select>
+            </label>
+            <button id="insert-invoice-product" class="secondary" type="button">Position übernehmen</button>
+          </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Beschreibung</th><th>Menge</th><th>Einzelpreis (EUR)</th><th></th></tr></thead>
               <tbody id="invoice-items"></tbody>
             </table>
           </div>
+          <p id="invoice-total-preview" class="notice">Gesamtbetrag: 0,00 €</p>
           <label class="wide">Zusätzlicher Hinweis (optional)<textarea id="invoice-note" maxlength="2000"></textarea></label>
           <p><button id="create-invoice" type="submit">Rechnung erstellen</button></p>
         </form>
@@ -360,6 +385,7 @@
     let activeSupportThreadId = null;
     let invoiceLogoDataUrl = null;
     let invoiceCustomers = [];
+    let invoiceProducts = [];
     let selectedInvoiceCustomer = null;
     let invoicePage = 1;
     let invoiceTotal = 0;
@@ -473,13 +499,14 @@
       async function loadInvoiceWorkspace() {
         setStatus(invoiceStatus, "Rechnungsdaten werden geladen …");
         try {
-          const [settingsResult, customersResult, invoicesResult] = await Promise.all([
+          const [settingsResult, customersResult, productsResult, invoicesResult] = await Promise.all([
             callAdmin("invoice-settings"),
             callAdmin("list-invoice-customers", {
               page: customerPage,
               perPage: customerPerPage,
               search: document.querySelector("#customer-search").value.trim(),
             }),
+            callAdmin("list-invoice-products"),
             fetchInvoices(),
           ]);
           const settings = settingsResult.settings;
@@ -505,8 +532,10 @@
             invoiceLogoDataUrl || "./assets/wertweit-logo.png";
           invoiceCustomers = customersResult.customers;
           customerTotal = customersResult.total;
+          invoiceProducts = productsResult.products;
           renderInvoiceCustomerOptions();
           renderInvoiceCustomers();
+          renderInvoiceProducts();
           renderInvoiceList(invoicesResult.invoices);
           renderInvoicePagination();
           renderCustomerPagination();
@@ -599,6 +628,76 @@
           row.append(actionsCell);
           body.append(row);
         }
+      }
+
+      function renderInvoiceProducts() {
+        const body = document.querySelector("#invoice-product-list");
+        const picker = document.querySelector("#invoice-product-picker");
+        const selectedProductId = picker.value;
+        body.replaceChildren();
+        picker.replaceChildren(new Option("Position manuell eingeben", ""));
+
+        for (const product of invoiceProducts) {
+          if (product.active) {
+            picker.add(new Option(`${product.name} · ${formatInvoiceAmount(product.unit_price_cents)}`, product.id));
+          }
+          const row = document.createElement("tr");
+          for (const text of [
+            product.name,
+            formatInvoiceAmount(product.unit_price_cents),
+            product.active ? "Aktiv" : "Archiviert",
+          ]) {
+            const cell = document.createElement("td");
+            cell.textContent = text;
+            row.append(cell);
+          }
+          const actions = document.createElement("td");
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "secondary";
+          edit.textContent = "Bearbeiten";
+          edit.addEventListener("click", () => {
+            document.querySelector("#invoice-product-id").value = product.id;
+            document.querySelector("#invoice-product-name").value = product.name;
+            document.querySelector("#invoice-product-price").value = (product.unit_price_cents / 100).toFixed(2);
+            document.querySelector("#save-invoice-product").textContent = "Produkt aktualisieren";
+            document.querySelector("#cancel-invoice-product-edit").hidden = false;
+            document.querySelector("#invoice-product-name").focus();
+          });
+          actions.append(edit);
+
+          const archive = document.createElement("button");
+          archive.type = "button";
+          archive.className = "secondary";
+          archive.textContent = product.active ? "Archivieren" : "Wieder aktivieren";
+          archive.addEventListener("click", async () => {
+            setBusy(archive, true);
+            try {
+              await callAdmin("set-invoice-product-active", {
+                productId: product.id,
+                active: !product.active,
+              });
+              await loadInvoiceProducts();
+              setStatus(invoiceStatus, `„${product.name}“ wurde ${product.active ? "archiviert" : "wieder aktiviert"}.`, "success");
+            } catch (error) {
+              setStatus(invoiceStatus, error.message, "error");
+              setBusy(archive, false);
+            }
+          });
+          actions.append(archive);
+          row.append(actions);
+          body.append(row);
+        }
+
+        if (selectedProductId && invoiceProducts.some((product) => product.id === selectedProductId && product.active)) {
+          picker.value = selectedProductId;
+        }
+      }
+
+      async function loadInvoiceProducts() {
+        const { products } = await callAdmin("list-invoice-products");
+        invoiceProducts = products;
+        renderInvoiceProducts();
       }
 
       function renderInvoicePagination() {
@@ -795,7 +894,7 @@
         }
       }
 
-      function addInvoiceItemRow() {
+      function addInvoiceItemRow(product = null) {
         const row = document.createElement("tr");
         row.className = "invoice-item-row";
         const descriptionCell = document.createElement("td");
@@ -803,6 +902,7 @@
         description.className = "item-description";
         description.maxLength = 200;
         description.placeholder = "Produkt oder Leistung";
+        description.value = product?.name ?? "";
         description.required = true;
         descriptionCell.append(description);
         const quantityCell = document.createElement("td");
@@ -822,6 +922,7 @@
         price.min = "0";
         price.step = "0.01";
         price.placeholder = "0,00";
+        price.value = product ? (product.unit_price_cents / 100).toFixed(2) : "";
         price.required = true;
         priceCell.append(price);
         const removeCell = document.createElement("td");
@@ -836,10 +937,27 @@
           } else {
             row.remove();
           }
+          updateInvoiceTotalPreview();
         });
+        quantity.addEventListener("input", updateInvoiceTotalPreview);
+        price.addEventListener("input", updateInvoiceTotalPreview);
         removeCell.append(remove);
         row.append(descriptionCell, quantityCell, priceCell, removeCell);
         document.querySelector("#invoice-items").append(row);
+        updateInvoiceTotalPreview();
+      }
+
+      function updateInvoiceTotalPreview() {
+        const totalCents = [...document.querySelectorAll("#invoice-items tr")].reduce((total, row) => {
+          const quantity = Number(row.querySelector(".item-quantity").value);
+          const price = Number(row.querySelector(".item-price").value);
+          if (!Number.isFinite(quantity) || !Number.isFinite(price) || quantity <= 0 || price < 0) {
+            return total;
+          }
+          return total + Math.round(quantity * Math.round(price * 100));
+        }, 0);
+        document.querySelector("#invoice-total-preview").textContent =
+          `Gesamtbetrag ohne Umsatzsteuerausweis: ${formatInvoiceAmount(totalCents)}`;
       }
 
       function readInvoiceLogo(file) {
@@ -1364,6 +1482,7 @@
           }
           document.querySelector("#invoice-items").replaceChildren();
           addInvoiceItemRow();
+          updateInvoiceTotalPreview();
           document.querySelector("#invoice-note").value = "";
         } catch (error) {
           printWindow?.close();
@@ -1442,8 +1561,49 @@
           setBusy(button, false);
         }
       });
+      document.querySelector("#invoice-product-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = document.querySelector("#save-invoice-product");
+        setBusy(button, true);
+        setStatus(invoiceStatus, "Produkt wird gespeichert …");
+        try {
+          const productId = document.querySelector("#invoice-product-id").value;
+          const { product } = await callAdmin("save-invoice-product", {
+            ...(productId ? { productId } : {}),
+            name: document.querySelector("#invoice-product-name").value,
+            unitPrice: document.querySelector("#invoice-product-price").value,
+          });
+          document.querySelector("#invoice-product-form").reset();
+          document.querySelector("#invoice-product-id").value = "";
+          document.querySelector("#save-invoice-product").textContent = "Produkt speichern";
+          document.querySelector("#cancel-invoice-product-edit").hidden = true;
+          await loadInvoiceProducts();
+          setStatus(invoiceStatus, `„${product.name}“ wurde gespeichert.`, "success");
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+      document.querySelector("#cancel-invoice-product-edit").addEventListener("click", () => {
+        document.querySelector("#invoice-product-form").reset();
+        document.querySelector("#invoice-product-id").value = "";
+        document.querySelector("#save-invoice-product").textContent = "Produkt speichern";
+        document.querySelector("#cancel-invoice-product-edit").hidden = true;
+      });
       document.querySelector("#cancel-customer-edit").addEventListener("click", () => {
         document.querySelector("#invoice-customer-dialog").close();
+      });
+      document.querySelector("#insert-invoice-product").addEventListener("click", () => {
+        const product = invoiceProducts.find((item) =>
+          item.id === document.querySelector("#invoice-product-picker").value && item.active
+        );
+        if (!product) {
+          setStatus(invoiceStatus, "Wähle zuerst ein gespeichertes Produkt oder eine Leistung aus.", "error");
+          return;
+        }
+        addInvoiceItemRow(product);
+        setStatus(invoiceStatus, `„${product.name}“ wurde als Rechnungsposition eingefügt.`);
       });
       addInvoiceItemRow();
 

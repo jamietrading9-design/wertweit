@@ -900,6 +900,76 @@ Deno.serve(async (request) => {
     return respond({ customer: data }, payload.action === "save-invoice-customer" ? 201 : 200);
   }
 
+  if (payload.action === "list-invoice-products") {
+    const { data, error } = await supabase
+      .from("invoice_products")
+      .select("id, name, unit_price_cents, active, created_at, updated_at")
+      .order("name", { ascending: true })
+      .limit(500);
+    if (error) {
+      console.error("Could not list invoice products", error.message);
+      return respond({ error: "Invoice products could not be loaded" }, 502);
+    }
+    return respond({ products: data ?? [] });
+  }
+
+  if (payload.action === "save-invoice-product") {
+    const name = invoiceText(payload.name, 200);
+    const unitPriceCents = invoiceAmountCents(payload.unitPrice);
+    if (!name || unitPriceCents === null || unitPriceCents < 1) {
+      return respond({ error: "Enter a product name and a unit price greater than zero" }, 400);
+    }
+
+    const productValues = {
+      name,
+      unit_price_cents: unitPriceCents,
+      active: true,
+      updated_at: new Date().toISOString(),
+    };
+    const productId = payload.productId;
+    if (productId !== undefined &&
+        (typeof productId !== "string" || !/^[0-9a-f-]{36}$/i.test(productId))) {
+      return respond({ error: "Invalid invoice product" }, 400);
+    }
+    const result = typeof productId === "string"
+      ? await supabase
+        .from("invoice_products")
+        .update(productValues)
+        .eq("id", productId)
+        .select("id, name, unit_price_cents, active, created_at, updated_at")
+        .maybeSingle()
+      : await supabase
+        .from("invoice_products")
+        .insert(productValues)
+        .select("id, name, unit_price_cents, active, created_at, updated_at")
+        .maybeSingle();
+    if (result.error) {
+      console.error("Could not save invoice product", result.error.message);
+      return respond({ error: "Invoice product could not be saved" }, 502);
+    }
+    if (!result.data) return respond({ error: "Invoice product could not be found" }, 404);
+    return respond({ product: result.data }, typeof productId === "string" ? 200 : 201);
+  }
+
+  if (payload.action === "set-invoice-product-active") {
+    if (typeof payload.productId !== "string" || !/^[0-9a-f-]{36}$/i.test(payload.productId) ||
+        typeof payload.active !== "boolean") {
+      return respond({ error: "Invalid invoice product status" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("invoice_products")
+      .update({ active: payload.active, updated_at: new Date().toISOString() })
+      .eq("id", payload.productId)
+      .select("id, name, active")
+      .maybeSingle();
+    if (error) {
+      console.error("Could not update invoice product status", error.message);
+      return respond({ error: "Invoice product status could not be updated" }, 502);
+    }
+    if (!data) return respond({ error: "Invoice product could not be found" }, 404);
+    return respond({ product: data });
+  }
+
   if (payload.action === "list-invoices") {
     const page = Number(payload.page ?? 1);
     const perPage = Number(payload.perPage ?? 25);

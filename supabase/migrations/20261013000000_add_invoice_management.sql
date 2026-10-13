@@ -60,6 +60,20 @@ create table if not exists public.invoice_customers (
 create index if not exists invoice_customers_name_idx
     on public.invoice_customers (name);
 
+create table if not exists public.invoice_products (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    unit_price_cents bigint not null check (unit_price_cents > 0 and unit_price_cents <= 100000000),
+    active boolean not null default true,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint invoice_products_name_length check (char_length(name) between 1 and 200)
+);
+
+create index if not exists invoice_products_active_name_idx
+    on public.invoice_products (lower(name))
+    where active;
+
 create table if not exists public.invoice_records (
     id uuid primary key default gen_random_uuid(),
     invoice_number text not null unique,
@@ -156,10 +170,12 @@ grant execute on function public.admin_list_invoices(text, text, date, date, int
 
 alter table public.invoice_settings enable row level security;
 alter table public.invoice_customers enable row level security;
+alter table public.invoice_products enable row level security;
 alter table public.invoice_records enable row level security;
 
 revoke all on public.invoice_settings from anon, authenticated;
 revoke all on public.invoice_customers from anon, authenticated;
+revoke all on public.invoice_products from anon, authenticated;
 revoke all on public.invoice_records from anon, authenticated;
 
 create or replace function public.admin_create_invoice(
