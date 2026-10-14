@@ -85,19 +85,9 @@ struct TravelView: View {
                 }
                 .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle("Sicher Geld wechseln", detail: "Allgemeine Tipps für unterwegs")
-                    exchangeTip("Gesamtbetrag vergleichen", "Kurs, Provision und Karten-/Automatengebühr zusammenrechnen.")
-                    exchangeTip("Am Automaten", "Möglichst in Landeswährung abrechnen lassen; die Umrechnung des Automaten ablehnen.")
-                    exchangeTip("Vor dem Tausch", "Endbetrag und alle Gebühren bestätigen lassen, bevor du Bargeld übergibst.")
-                    exchangeTip("Auf Reisen", "Flughafen- und Hotelangebote sind bequem, aber nicht automatisch günstig.")
-                }
-                .padding(17)
-                .background(.white, in: RoundedRectangle(cornerRadius: 16))
-
                 VStack(alignment: .leading, spacing: 13) {
                     Text("UMRECHNUNG VOR ORT")
-                        .font(.system(size: 10, weight: .bold)).tracking(1).foregroundStyle(featureInk.opacity(0.48))
+                        .font(.system(size: 10, weight: .bold)).tracking(1).foregroundStyle(featureGreen)
                     if model.parsedAmount() == nil {
                         Text("Bitte einen gültigen Betrag im Rechner eingeben.")
                             .font(.system(size: 14)).foregroundStyle(featureInk.opacity(0.62))
@@ -171,13 +161,6 @@ struct TravelView: View {
         }
     }
 
-    private func exchangeTip(_ title: String, _ detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.system(size: 13, weight: .semibold))
-            Text(detail).font(.system(size: 12)).foregroundStyle(featureInk.opacity(0.62))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 }
 
 private enum CalculatorMode: String, CaseIterable, Identifiable {
@@ -243,12 +226,41 @@ struct ExchangeToolsView: View {
                         action: onUpgrade
                     )
                 }
+                exchangeTips
                 Text("Ergebnisse dienen der Orientierung. Gebühren und Aufschläge unterscheiden sich je nach Anbieter.")
                     .font(.system(size: 11)).foregroundStyle(featureInk.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
         }
         .background(featureCanvas)
+    }
+
+    private var exchangeTips: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Sicher wechseln", detail: "Vier kurze Tipps für unterwegs")
+            exchangeTip("Gesamtbetrag vergleichen", "Kurs, Provision und Karten- oder Automatengebühr zusammenrechnen.")
+            exchangeTip("Am Automaten", "In Landeswährung abrechnen lassen und die Automatenumrechnung ablehnen.")
+            exchangeTip("Vor dem Tausch", "Endbetrag und alle Gebühren bestätigen lassen.")
+            exchangeTip("Auf Reisen", "Flughafen- und Hotelangebote sind bequem, aber nicht automatisch günstig.")
+        }
+        .padding(14)
+        .background(.white, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func exchangeTip(_ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(featureInk.opacity(0.58))
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 12, weight: .semibold))
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(featureInk.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var feesPanel: some View {

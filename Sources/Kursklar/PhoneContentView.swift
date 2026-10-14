@@ -121,7 +121,6 @@ struct PhoneContentView: View {
                     }
                         .tabItem { Label("Übersicht", systemImage: "chart.xyaxis.line") }
                 }
-                .tint(green)
                 footer
             }
         }
@@ -416,7 +415,7 @@ struct PhoneContentView: View {
                 Button("Datenschutz") { activeSheet = .legal(.privacy) }
             }
             .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(green)
+            .foregroundStyle(ink.opacity(0.78))
             .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
@@ -890,7 +889,7 @@ struct PhoneContentView: View {
                         }
 
                         privacySection("Abonnement und Zahlung") {
-                            Text("Wenn du ein Wertweit-Pro-Abo abschließt, verarbeitet Apple Zahlung und Abrechnungsdaten über deinen Apple Account. Die App erhält von StoreKit den verifizierten Abo-Status, um Pro-Funktionen freizuschalten. Wir erhalten keine Kartennummer. Dein Wertweit-Konto ist davon getrennt.")
+                            Text("Wenn du ein Wertweit-Pro-Abo abschließt, verarbeitet Apple Zahlung und Abrechnungsdaten über deinen Apple Account. Die App erhält von StoreKit den verifizierten Abo-Status, um Pro-Funktionen freizuschalten. Wir erhalten keine Kartennummer. Apple verwaltet Kaufbelege für echte iPhone-Käufe; Wertweit erstellt dafür derzeit keine zweite Rechnung. Dein Wertweit-Konto ist davon getrennt.")
                         }
 
                         privacySection("Zweck und Rechtsgrundlage") {
@@ -979,8 +978,8 @@ private struct ProPaywallView: View {
 
     private let ink = Color(red: 0.10, green: 0.16, blue: 0.15)
     private let green = Color(red: 0.12, green: 0.39, blue: 0.30)
-    private let lime = Color(red: 0.80, green: 0.91, blue: 0.39)
     private let canvas = Color(red: 0.95, green: 0.96, blue: 0.93)
+    private let proButton = Color(red: 0.20, green: 0.22, blue: 0.23)
 
     private var monthlyProduct: Product? {
         store.product(for: SubscriptionStore.monthlyProductID)
@@ -1015,11 +1014,11 @@ private struct ProPaywallView: View {
 
                 HStack(spacing: 9) {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(green)
+                        .foregroundStyle(ink.opacity(0.72))
                     Text("WERTWEIT PRO")
                         .font(.system(size: 11, weight: .bold))
                         .tracking(1.2)
-                        .foregroundStyle(green)
+                        .foregroundStyle(ink.opacity(0.72))
                 }
 
                 Text(offerTitle)
@@ -1037,7 +1036,7 @@ private struct ProPaywallView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("7 Tage kostenlos testen", systemImage: "sparkles")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(green)
+                        .foregroundStyle(ink.opacity(0.82))
                     Text("Demo-Zugang ohne Zahlungsdaten: 7 Tage Pro, einmal pro Konto. Es wird nichts gekauft oder abgebucht, es gibt keine automatische Verlängerung und keine Rechnung. Du erhältst nur eine klar als Demo gekennzeichnete Bestätigungs-E-Mail.")
                         .font(.system(size: 12))
                         .foregroundStyle(ink.opacity(0.64))
@@ -1055,9 +1054,9 @@ private struct ProPaywallView: View {
                                 Text(isClaimingDemo ? "Demo wird aktiviert …" : "Demo-Pro 7 Tage aktivieren")
                             }
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(ink)
+                                .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity, minHeight: 48)
-                                .background(lime, in: RoundedRectangle(cornerRadius: 12))
+                                .background(proButton, in: RoundedRectangle(cornerRadius: 12))
                         }
                         .buttonStyle(.plain)
                         .disabled(isClaimingDemo)
@@ -1080,11 +1079,12 @@ private struct ProPaywallView: View {
                 HStack(spacing: 16) {
                     Button("Datenschutz", action: onShowPrivacy)
                     Link("Nutzungsbedingungen", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                    Link("Apple-Belege", destination: URL(string: "https://reportaproblem.apple.com/")!)
                 }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(green)
 
-                Text("Für die App ist ein Wertweit-Konto erforderlich. Ein echtes Pro-Abo wird von Apple abgerechnet und dort verwaltet. Der kostenlose Demo-Zugang ist kein Kauf und wird nicht verlängert.")
+                Text("Echte iPhone-Käufe werden von Apple abgerechnet; Apple verwaltet die Kaufbelege. Wertweit erstellt dafür derzeit keine zweite Rechnung. Der kostenlose Demo-Zugang ist kein Kauf und wird nicht verlängert.")
                     .font(.system(size: 11))
                     .foregroundStyle(ink.opacity(0.52))
                     .fixedSize(horizontal: false, vertical: true)
@@ -1094,13 +1094,14 @@ private struct ProPaywallView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(canvas)
+        .tint(proButton)
     }
 
     @ViewBuilder
     private var subscriptionOptions: some View {
         if store.isLoadingProducts {
             HStack(spacing: 10) {
-                ProgressView().tint(green)
+                ProgressView().tint(proButton)
                 Text("Abo-Preise werden von Apple geladen …")
                     .font(.system(size: 13))
                     .foregroundStyle(ink.opacity(0.62))
@@ -1108,6 +1109,7 @@ private struct ProPaywallView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(.white, in: RoundedRectangle(cornerRadius: 14))
+            .tint(proButton)
         } else if let product = selectedProduct {
             VStack(alignment: .leading, spacing: 14) {
                 if monthlyProduct != nil, yearlyProduct != nil {
@@ -1130,13 +1132,13 @@ private struct ProPaywallView: View {
                 #if DEBUG
                 Text("Lokaler Xcode-Test: 0 €, keine Abbuchung. Nur mit dem Schema „Wertweit Pro Test“.")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(green)
+                    .foregroundStyle(ink.opacity(0.78))
                     .fixedSize(horizontal: false, vertical: true)
                 #endif
 
                 Text(store.purchaseDisclosure(for: product))
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(green)
+                    .foregroundStyle(ink.opacity(0.78))
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(billingPeriod == .monthly ? monthlyOfferMessage : yearlyOfferMessage)
@@ -1149,9 +1151,9 @@ private struct ProPaywallView: View {
                 } label: {
                     Text(store.isEligibleForFreeTrial(product) ? "Kostenlose Testphase starten" : "Pro-Abo starten")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(ink)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(lime, in: RoundedRectangle(cornerRadius: 12))
+                        .background(proButton, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 .disabled(store.purchaseInProgressFor != nil)
@@ -1159,7 +1161,7 @@ private struct ProPaywallView: View {
                 if store.purchaseInProgressFor == product.id {
                     ProgressView("Kauf wird bestätigt …")
                         .font(.system(size: 12))
-                        .tint(green)
+                        .tint(proButton)
                 }
             }
             .padding(16)
@@ -1174,7 +1176,7 @@ private struct ProPaywallView: View {
                     Task { await store.loadProducts() }
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(green)
+                .foregroundStyle(ink.opacity(0.78))
                 .buttonStyle(.plain)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1185,7 +1187,7 @@ private struct ProPaywallView: View {
         if let message = store.message {
             Text(message)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(green)
+                .foregroundStyle(ink.opacity(0.78))
                 .fixedSize(horizontal: false, vertical: true)
         }
 
@@ -1193,7 +1195,7 @@ private struct ProPaywallView: View {
             Task { await store.restorePurchases() }
         }
         .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(green)
+        .foregroundStyle(ink.opacity(0.78))
         .frame(maxWidth: .infinity)
         .buttonStyle(.plain)
     }
@@ -1202,7 +1204,7 @@ private struct ProPaywallView: View {
         HStack(alignment: .top, spacing: 11) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(green)
+                .foregroundStyle(ink.opacity(0.78))
                 .frame(width: 20)
             Text(title)
                 .font(.system(size: 13, weight: .medium))
