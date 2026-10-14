@@ -86,6 +86,24 @@ struct PhoneContentView: View {
             canvas.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                if authStore.announcementEnabled,
+                   !authStore.announcementTitle.isEmpty,
+                   !authStore.announcementMessage.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label(authStore.announcementTitle, systemImage: "megaphone.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(ink)
+                        Text(authStore.announcementMessage)
+                            .font(.system(size: 12))
+                            .foregroundStyle(ink.opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(lime.opacity(0.34), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                }
                 TabView {
                     calculatorPage
                         .tabItem { Label("Rechner", systemImage: "arrow.left.arrow.right") }

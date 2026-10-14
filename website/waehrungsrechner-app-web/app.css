@@ -64,6 +64,9 @@ input, select { width: 100%; min-height: 46px; padding: 11px 13px; border: 1px s
 .sidebar-bottom { display: grid; gap: 8px; margin-top: auto; }
 .pro-status { margin: 0 12px; color: var(--leaf); font-size: 11px; font-weight: 700; }
 .main-content { width: min(100%, 900px); margin: 0 auto; padding: clamp(25px, 5vw, 58px); }
+.app-announcement { margin: 0 0 20px; padding: 15px 17px; border: 1px solid rgba(18,60,49,.12); border-left: 4px solid #1c6a4f; border-radius: 12px; background: #edf4d5; color: #14241f; }
+.app-announcement strong { display: block; font-size: 14px; }
+.app-announcement p { margin: 5px 0 0; color: #47564e; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
 .page { display: none; animation: appear .18s ease-out; }
 .page.active { display: block; }
 @keyframes appear { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: none; } }

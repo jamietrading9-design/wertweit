@@ -21,6 +21,9 @@ const state = {
   phraseResult: "",
   maintenanceEnabled: false,
   maintenanceMessage: "",
+  announcementEnabled: false,
+  announcementTitle: "",
+  announcementMessage: "",
   initializing: false,
   maintenanceTimer: null,
   appRefreshTimer: null,
@@ -70,13 +73,23 @@ function authErrorMessage(error, operation) {
 async function readMaintenanceSettings() {
   const { data, error } = await supabase
     .from("app_settings")
-    .select("maintenance_enabled, maintenance_message")
+    .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message")
     .eq("id", 1)
     .single();
   if (error || !data) {
     throw new Error(error?.message ?? "Der Wartungsstatus konnte nicht geladen werden.");
   }
   return data;
+}
+
+function applyAppAnnouncement(settings) {
+  state.announcementEnabled = settings.announcement_enabled === true;
+  state.announcementTitle = settings.announcement_title ?? "";
+  state.announcementMessage = settings.announcement_message ?? "";
+  const banner = $("#app-announcement");
+  banner.hidden = !state.announcementEnabled || !state.announcementTitle || !state.announcementMessage;
+  $("#app-announcement-title").textContent = state.announcementTitle;
+  $("#app-announcement-message").textContent = state.announcementMessage;
 }
 
 function showMaintenance(settings, unavailable = false) {
@@ -100,6 +113,7 @@ function showMaintenance(settings, unavailable = false) {
 async function pollMaintenanceStatus() {
   try {
     const settings = await readMaintenanceSettings();
+    applyAppAnnouncement(settings);
     if (settings.maintenance_enabled) {
       showMaintenance(settings);
       return;
@@ -456,6 +470,7 @@ async function initializeApp(user) {
       console.error("Could not load maintenance settings", error);
       return;
     }
+    applyAppAnnouncement(settings);
     state.maintenanceEnabled = settings.maintenance_enabled === true;
     if (state.maintenanceEnabled) {
       showMaintenance(settings);

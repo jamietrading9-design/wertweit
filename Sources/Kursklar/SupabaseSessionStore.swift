@@ -71,6 +71,9 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var isLoading = true
     @Published private(set) var maintenanceEnabled = false
     @Published private(set) var maintenanceMessage = "Wertweit wird gerade gewartet. Bitte versuche es später erneut."
+    @Published private(set) var announcementEnabled = false
+    @Published private(set) var announcementTitle = ""
+    @Published private(set) var announcementMessage = ""
     @Published private(set) var proOfferTitle = "Mehr Überblick auf Reisen."
     @Published private(set) var proOfferMessage = "Der Währungsrechner bleibt kostenlos. Pro bündelt die Reise- und Analysewerkzeuge."
     @Published private(set) var proMonthlyOfferMessage = "Flexible Nutzung, monatliche Abrechnung."
@@ -474,7 +477,7 @@ final class SupabaseSessionStore: ObservableObject {
         components?.queryItems = [
             URLQueryItem(
                 name: "select",
-                value: "maintenance_enabled,maintenance_message,pro_offer_title,pro_offer_message,pro_monthly_offer_message,pro_yearly_offer_message"
+                value: "maintenance_enabled,maintenance_message,announcement_enabled,announcement_title,announcement_message,pro_offer_title,pro_offer_message,pro_monthly_offer_message,pro_yearly_offer_message"
             ),
             URLQueryItem(name: "id", value: "eq.1")
         ]
@@ -500,6 +503,9 @@ final class SupabaseSessionStore: ObservableObject {
             }
             maintenanceEnabled = settings.maintenanceEnabled
             maintenanceMessage = settings.maintenanceMessage
+            announcementEnabled = settings.announcementEnabled ?? false
+            announcementTitle = settings.announcementTitle ?? ""
+            announcementMessage = settings.announcementMessage ?? ""
             proOfferTitle = settings.proOfferTitle ?? proOfferTitle
             proOfferMessage = settings.proOfferMessage ?? proOfferMessage
             proMonthlyOfferMessage = settings.proMonthlyOfferMessage ?? proMonthlyOfferMessage
@@ -744,6 +750,9 @@ private struct SupabaseErrorResponse: Decodable {
 private struct AppSettings: Decodable {
     let maintenanceEnabled: Bool
     let maintenanceMessage: String
+    let announcementEnabled: Bool?
+    let announcementTitle: String?
+    let announcementMessage: String?
     let proOfferTitle: String?
     let proOfferMessage: String?
     let proMonthlyOfferMessage: String?
@@ -752,6 +761,9 @@ private struct AppSettings: Decodable {
     enum CodingKeys: String, CodingKey {
         case maintenanceEnabled = "maintenance_enabled"
         case maintenanceMessage = "maintenance_message"
+        case announcementEnabled = "announcement_enabled"
+        case announcementTitle = "announcement_title"
+        case announcementMessage = "announcement_message"
         case proOfferTitle = "pro_offer_title"
         case proOfferMessage = "pro_offer_message"
         case proMonthlyOfferMessage = "pro_monthly_offer_message"

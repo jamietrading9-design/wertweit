@@ -109,6 +109,15 @@
     .admin-nav { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 20px; padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
     .admin-nav button { flex: none; min-height: 38px; }
     .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; }
+    .email-template-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 14px 0; }
+    .email-template-actions label { flex: 1 1 240px; }
+    .activity-list { display: grid; gap: 9px; margin-top: 16px; }
+    .activity-item { display: grid; grid-template-columns: minmax(140px, auto) minmax(0, 1fr); gap: 10px 16px; padding: 14px; border: 1px solid var(--line); background: white; }
+    .activity-item time { color: var(--muted); font-size: 11px; }
+    .activity-item strong { display: block; font-size: 13px; }
+    .activity-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .email-preview-frame { display: block; width: 100%; height: min(72vh, 760px); border: 1px solid var(--line); background: var(--paper); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     .private-item-row input { min-width: 90px; }
     dialog { width: min(620px, calc(100% - 28px)); max-height: 90vh; overflow: auto; border: 1px solid var(--line); padding: 22px; color: var(--ink); }
     dialog::backdrop { background: rgba(11, 43, 36, .55); }
@@ -143,7 +152,7 @@
 
     <section id="dashboard" hidden>
       <div class="toolbar">
-        <div><h1 id="admin-page-title">Admin-Dashboard</h1><p id="admin-page-description" class="intro">Kennzahlen und den Zustand der App im Blick behalten.</p></div>
+        <div><h1 id="admin-page-title">Admin-Dashboard</h1><p id="admin-page-description" class="intro">Kennzahlen und den Zustand der App im Blick behalten.</p><p id="admin-action-status" class="status" role="status"></p></div>
         <button id="logout-button" class="secondary" type="button">Abmelden</button>
       </div>
       <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
@@ -156,6 +165,7 @@
         <button type="button" data-admin-tab="invoices">App-Rechnungen</button>
         <button type="button" data-admin-tab="customers">Kunden</button>
         <button type="button" data-admin-tab="private">Privatverkäufe</button>
+        <button type="button" data-admin-tab="activity">Aktivitätsverlauf</button>
       </nav>
       <section class="card" data-admin-page="dashboard" aria-labelledby="metrics-title">
         <div class="card-heading"><h2 id="metrics-title">App-Kennzahlen</h2><button id="refresh-metrics" class="secondary" type="button">Aktualisieren</button></div>
@@ -179,6 +189,17 @@
         <p class="notice">Bei jedem Wechsel des Wartungsmodus erhältst du eine E-Mail. Nutzer mit aktivierter E-Mail-Einwilligung bekommen dieselbe Service-Mitteilung. Der kostenlose Gmail-Versand ist auf 99 Nutzer pro Wartungswechsel begrenzt.</p>
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
+      </section>
+      <section class="card" data-admin-page="settings" aria-labelledby="announcement-heading">
+        <div class="card-heading"><h2 id="announcement-heading">Hinweis in der App</h2></div>
+        <p class="notice">Dieser Hinweis erscheint für angemeldete Nutzer oben in der iPhone-App und Web-App. Er eignet sich für wichtige Informationen und kann jederzeit ausgeschaltet werden.</p>
+        <label class="setting"><input id="announcement-enabled" type="checkbox"> Hinweis anzeigen</label>
+        <div class="fields">
+          <label>Überschrift<input id="announcement-title" maxlength="80"></label>
+          <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
+          <button id="save-announcement" type="button">Hinweis speichern</button>
+        </div>
+        <p id="announcement-status" class="status" role="status"></p>
       </section>
       <section class="card" data-admin-page="settings" aria-labelledby="pro-offer-heading">
         <div class="card-heading"><h2 id="pro-offer-heading">Pro-Angebot in der App</h2></div>
@@ -394,6 +415,8 @@
         <p id="create-user-status" class="status" role="status"></p>
         <div class="invoice-filter-grid">
           <label>Person nach E-Mail suchen<input id="user-search" type="search" maxlength="160" autocomplete="off"></label>
+          <label>Kontostatus<select id="user-account-filter"><option value="all">Alle Konten</option><option value="active">Aktive Konten</option><option value="blocked">Gesperrte Konten</option><option value="unconfirmed">E-Mail unbestätigt</option><option value="pro">Aktive Admin-Pro-Freigabe</option><option value="admin">Admins</option></select></label>
+          <label>Sortierung<select id="user-sort"><option value="standard">Standard</option><option value="created-asc">Älteste zuerst</option><option value="last-sign-in-desc">Letzte Anmeldung</option><option value="email-asc">E-Mail A–Z</option></select></label>
           <button id="search-users" type="button">Suchen</button>
         </div>
         <p id="users-status" class="status" role="status"></p>
@@ -455,6 +478,13 @@
           </section>
           <label>Betreff<input id="email-subject" maxlength="150" required></label>
           <label>Nachricht<textarea id="email-body" maxlength="10000" required></textarea></label>
+          <div class="email-template-actions">
+            <label>Gespeicherte Entwürfe<select id="email-saved-template"><option value="">Kein Entwurf ausgewählt</option></select></label>
+            <button id="save-email-template" class="secondary" type="button">Entwurf speichern</button>
+            <button id="load-email-template" class="secondary" type="button">Laden</button>
+            <button id="delete-email-template" class="secondary" type="button">Löschen</button>
+            <button id="preview-email" class="secondary" type="button">Vorschau anzeigen</button>
+          </div>
           <button id="send-email-button" type="submit">E-Mail senden</button>
         </form>
         <p id="email-status" class="status" role="status"></p>
@@ -468,12 +498,22 @@
               <option value="all">Alle Tickets</option>
               <option value="closed">Geschlossene Tickets</option>
             </select></label>
+            <label>Priorität<select id="support-priority-filter"><option value="all">Alle Prioritäten</option><option value="red">Dringend</option><option value="yellow">Wichtig</option><option value="green">Normal</option></select></label>
+            <label>Kategorie<select id="support-category-filter"><option value="all">Alle Kategorien</option><option value="account">Konto &amp; Anmeldung</option><option value="payment">Zahlung &amp; Pro</option><option value="bug">App-Fehler</option><option value="feature">Wunsch &amp; Vorschlag</option><option value="other">Sonstiges</option></select></label>
             <button id="refresh-support" class="secondary" type="button">Aktualisieren</button>
           </div>
         </div>
+        <div class="invoice-filter-grid"><label>Tickets durchsuchen<input id="support-search" type="search" maxlength="160" placeholder="Betreff oder E-Mail"></label></div>
         <p class="intro">Offene Tickets müssen erst übernommen werden. Nur der zugewiesene Admin kann antworten oder schließen.</p>
+        <p class="notice">Es werden höchstens die 100 neuesten passenden Tickets geladen. Nutze Suche und Filter, um ältere Vorgänge einzugrenzen.</p>
         <p id="support-status" class="status" role="status"></p>
         <div id="support-threads"></div>
+      </section>
+      <section class="card" data-admin-page="activity" aria-labelledby="activity-title">
+        <div class="card-heading"><div><h2 id="activity-title">Admin-Aktivitätsverlauf</h2><p class="intro">Protokolliert wichtige Konto-, Support-, E-Mail- und App-Einstellungsaktionen.</p></div><button id="refresh-activity" class="secondary" type="button">Aktualisieren</button></div>
+        <p class="notice">Der Verlauf enthält Admin-Aktionen ab dem Aktivieren der zugehörigen Datenbankmigration. Inhalte von E-Mails und private Notiztexte werden nicht gespeichert.</p>
+        <p id="activity-status" class="status" role="status"></p>
+        <div id="activity-list" class="activity-list"></div>
       </section>
     </section>
   </main>
@@ -497,6 +537,12 @@
       </div>
     </form>
   </dialog>
+  <dialog id="email-preview-dialog">
+    <h2>E-Mail-Vorschau</h2>
+    <p class="intro">Vorschau des Wertweit-Layouts mit Logo. Nachrichtentext wird als sicherer Text eingesetzt.</p>
+    <iframe id="email-preview-frame" class="email-preview-frame" title="Vorschau der versendeten E-Mail" sandbox></iframe>
+    <div class="dialog-actions"><button id="close-email-preview" class="secondary" type="button">Schließen</button></div>
+  </dialog>
   <script src="./supabase-config.js"></script>
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -507,6 +553,7 @@
     const loginForm = document.querySelector("#login-form");
     const loginStatus = document.querySelector("#login-status");
     const maintenanceStatus = document.querySelector("#maintenance-status");
+    const announcementStatus = document.querySelector("#announcement-status");
     const usersStatus = document.querySelector("#users-status");
     const usersBody = document.querySelector("#users-body");
     const supportStatus = document.querySelector("#support-status");
@@ -519,6 +566,8 @@
     const invoiceStatus = document.querySelector("#invoice-status");
     const customerStatus = document.querySelector("#customer-status");
     const invoiceProfileStatus = document.querySelector("#invoice-profile-status");
+    const activityStatus = document.querySelector("#activity-status");
+    const activityList = document.querySelector("#activity-list");
     const perPage = 25;
     let page = 1;
     let total = 0;
@@ -538,6 +587,15 @@
     const invoicePerPage = 25;
     const customerPerPage = 25;
     const selectedUserIds = new Set();
+    const auditedAdminActions = new Set([
+      "send-email", "create-user", "set-pro-access", "revoke-pro-access", "set-user-blocked",
+      "claim-support", "release-support", "close-support", "reopen-support", "reply-support",
+      "save-private-admin-note", "delete-private-admin-note", "update-maintenance", "update-pro-offer",
+      "update-app-announcement",
+      "save-invoice-settings", "save-invoice-customer", "update-invoice-customer", "save-invoice-product",
+      "set-invoice-product-active", "create-invoice", "set-invoice-paid", "save-private-sale-settings",
+      "save-private-sale-customer", "create-private-sale-receipt",
+    ]);
 
     function setStatus(element, message, kind = "") {
       element.textContent = message;
@@ -614,6 +672,27 @@
           throw new Error(message);
         }
         if (data?.error) throw new Error(data.error);
+        if (data?.activityLogWarning) {
+          setStatus(document.querySelector("#admin-action-status"), data.activityLogWarning, "error");
+        }
+        if (auditedAdminActions.has(action)) {
+          const targetId = values.userId ?? values.threadId ?? values.customerId ?? values.productId ??
+            values.invoiceId ?? values.receiptId ?? values.noteId ?? data?.user?.id ?? data?.customer?.id ??
+            data?.invoice?.id ?? data?.receipt?.id ?? null;
+          const targetLabel = action === "send-email"
+            ? (values.audience === "newsletter" ? "Newsletter-Abonnenten" : "Ausgewählte Konten")
+            : "";
+          const { data: auditResult, error: auditError } = await supabase.functions.invoke("admin-console", {
+            body: { action: "record-admin-activity", sourceAction: action, targetId, targetLabel },
+          });
+          if (auditError || auditResult?.warning || auditResult?.error) {
+            const warning = auditResult?.warning || auditResult?.error || auditError.message;
+            setStatus(document.querySelector("#admin-action-status"), `Aktion abgeschlossen; ${warning}`, "error");
+          } else {
+            document.querySelector("#admin-action-status").textContent = "";
+            if (document.querySelector('[data-admin-tab="activity"][aria-current="page"]')) await loadAdminActivity();
+          }
+        }
         return data;
       }
 
@@ -622,7 +701,7 @@
         loginView.hidden = true;
         dashboard.hidden = false;
         setAdminPage("dashboard");
-        await Promise.all([loadSettings(settings), loadUsers(), loadPeopleDirectory(), loadSupport(), loadMetrics(), loadInvoiceWorkspace(), loadPrivateSales()]);
+        await Promise.all([loadSettings(settings), loadUsers(), loadPeopleDirectory(), loadSupport(), loadMetrics(), loadInvoiceWorkspace(), loadPrivateSales(), loadAdminActivity()]);
       }
 
       function setAdminPage(page, activeTab = page) {
@@ -637,6 +716,7 @@
           invoices: ["App-Rechnungen", "Geschäftsrechnungen erstellen und im Archiv verwalten."],
           customers: ["Kunden", "Kundenkonten für App-Rechnungen bearbeiten und gruppieren."],
           private: ["Private Verkäufe", "Getrennte private Verkaufsbelege erstellen und verwalten."],
+          activity: ["Aktivitätsverlauf", "Wichtige Admin-Aktionen transparent nachvollziehen."],
         };
         for (const section of dashboard.querySelectorAll("[data-admin-page]")) {
           section.hidden = section.dataset.adminPage !== page;
@@ -656,6 +736,9 @@
           document.querySelector("#maintenance-enabled").checked = settings.maintenance_enabled;
           document.querySelector("#maintenance-message").value = settings.maintenance_message;
           document.querySelector("#maintenance-state").textContent = settings.maintenance_enabled ? "App ist gesperrt" : "App ist aktiv";
+          document.querySelector("#announcement-enabled").checked = settings.announcement_enabled === true;
+          document.querySelector("#announcement-title").value = settings.announcement_title ?? "";
+          document.querySelector("#announcement-message").value = settings.announcement_message ?? "";
           document.querySelector("#pro-offer-title").value = settings.pro_offer_title;
           document.querySelector("#pro-offer-message").value = settings.pro_offer_message;
           document.querySelector("#pro-monthly-message").value = settings.pro_monthly_offer_message;
@@ -1416,6 +1499,42 @@
         }
       }
 
+      async function loadAdminActivity() {
+        setBusy(document.querySelector("#refresh-activity"), true);
+        setStatus(activityStatus, "Aktivitätsverlauf wird geladen …");
+        try {
+          const { activities } = await callAdmin("list-admin-activity");
+          activityList.replaceChildren();
+          if (activities.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "intro";
+            empty.textContent = "Noch keine protokollierten Admin-Aktionen vorhanden.";
+            activityList.append(empty);
+          }
+          for (const activity of activities) {
+            const item = document.createElement("article");
+            item.className = "activity-item";
+            const date = document.createElement("time");
+            date.dateTime = activity.created_at;
+            date.textContent = formatDate(activity.created_at);
+            const detail = document.createElement("div");
+            const title = document.createElement("strong");
+            title.textContent = activity.summary;
+            const meta = document.createElement("span");
+            const target = activity.target_label || activity.target_id || "Allgemein";
+            meta.textContent = `${activity.actor_email || "Admin"} · ${target} · Aktion: ${activity.action}`;
+            detail.append(title, meta);
+            item.append(date, detail);
+            activityList.append(item);
+          }
+          setStatus(activityStatus, `${activities.length} letzte Aktion${activities.length === 1 ? "" : "en"} geladen.`, "success");
+        } catch (error) {
+          setStatus(activityStatus, error.message, "error");
+        } finally {
+          setBusy(document.querySelector("#refresh-activity"), false);
+        }
+      }
+
       function renderPrivateAdminNotes(container, notes, targetType, targetId, statusElement, refresh) {
         container.replaceChildren();
         if (!notes.length) {
@@ -1730,7 +1849,13 @@
         setStatus(usersStatus, "Konten werden geladen …");
         try {
           const search = document.querySelector("#user-search").value.trim();
-          const result = await callAdmin("list-users", { page, perPage, search });
+          const result = await callAdmin("list-users", {
+            page,
+            perPage,
+            search,
+            accountFilter: document.querySelector("#user-account-filter").value,
+            sortBy: document.querySelector("#user-sort").value,
+          });
           total = Number.isInteger(result.total) ? result.total : 0;
           usersBody.replaceChildren();
           for (const user of result.users) {
@@ -1861,7 +1986,12 @@
         setStatus(supportStatus, "Support-Nachrichten werden geladen …");
         try {
           const filter = document.querySelector("#support-filter").value;
-          const { threads } = await callAdmin("list-support", { filter });
+          const { threads, total } = await callAdmin("list-support", {
+            filter,
+            priority: document.querySelector("#support-priority-filter").value,
+            category: document.querySelector("#support-category-filter").value,
+            search: document.querySelector("#support-search").value.trim(),
+          });
           const { data: { user: currentAdmin }, error: adminError } = await supabase.auth.getUser();
           if (adminError || !currentAdmin) throw new Error("Die Admin-Anmeldung konnte nicht geprüft werden. Bitte melde dich erneut an.");
           supportThreads.replaceChildren();
@@ -1995,7 +2125,7 @@
             section.append(ticket);
             supportThreads.append(section);
           }
-          setStatus(supportStatus, `${threads.length} Unterhaltung${threads.length === 1 ? "" : "en"} geladen.`, "success");
+          setStatus(supportStatus, `${threads.length} von ${total} passenden Unterhaltung${total === 1 ? "" : "en"} geladen${total > threads.length ? " (maximal 100)" : ""}.`, "success");
         } catch (error) {
           setStatus(supportStatus, error.message, "error");
         } finally {
@@ -2083,6 +2213,30 @@
           }
         } catch (error) {
           setStatus(maintenanceStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#save-announcement").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        setBusy(button, true);
+        setStatus(announcementStatus, "App-Hinweis wird gespeichert …");
+        try {
+          const { settings } = await callAdmin("update-app-announcement", {
+            enabled: document.querySelector("#announcement-enabled").checked,
+            title: document.querySelector("#announcement-title").value,
+            message: document.querySelector("#announcement-message").value,
+          });
+          setStatus(
+            announcementStatus,
+            settings.announcement_enabled
+              ? "Hinweis gespeichert. Nutzer sehen ihn nach der nächsten Statusaktualisierung."
+              : "App-Hinweis ausgeschaltet.",
+            "success",
+          );
+        } catch (error) {
+          setStatus(announcementStatus, error.message, "error");
         } finally {
           setBusy(button, false);
         }
@@ -2260,6 +2414,13 @@
           loadPeopleDirectory();
         }
       });
+      document.querySelector("#person-search").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          peoplePage = 1;
+          loadPeopleDirectory();
+        }
+      });
       document.querySelector("#people-previous-page").addEventListener("click", () => {
         peoplePage -= 1;
         loadPeopleDirectory();
@@ -2274,6 +2435,14 @@
           page = 1;
           loadUsers();
         }
+      });
+      document.querySelector("#user-account-filter").addEventListener("change", () => {
+        page = 1;
+        loadUsers();
+      });
+      document.querySelector("#user-sort").addEventListener("change", () => {
+        page = 1;
+        loadUsers();
       });
       document.querySelector("#back-to-people").addEventListener("click", () => {
         setAdminPage("people");
@@ -2299,8 +2468,10 @@
         button.addEventListener("click", () => {
           const requestedTab = button.dataset.adminTab;
           setAdminPage(requestedTab);
+          if (requestedTab === "activity") loadAdminActivity();
         });
       }
+      document.querySelector("#refresh-activity").addEventListener("click", loadAdminActivity);
       document.querySelector("#invoice-customer").addEventListener("change", (event) => {
         selectedInvoiceCustomer = invoiceCustomers.find((customer) => customer.id === event.currentTarget.value) ??
           (selectedInvoiceCustomer?.id === event.currentTarget.value ? selectedInvoiceCustomer : null);
@@ -2478,6 +2649,14 @@
       document.querySelector("#refresh-users").addEventListener("click", loadUsers);
       document.querySelector("#refresh-support").addEventListener("click", loadSupport);
       document.querySelector("#support-filter").addEventListener("change", loadSupport);
+      document.querySelector("#support-priority-filter").addEventListener("change", loadSupport);
+      document.querySelector("#support-category-filter").addEventListener("change", loadSupport);
+      document.querySelector("#support-search").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          loadSupport();
+        }
+      });
       const emailAudience = document.querySelector("#email-audience");
       const emailDraftType = document.querySelector("#email-draft-type");
       const emailServiceConfirmation = document.querySelector("#email-service-confirmation");
@@ -2531,6 +2710,107 @@
         updateEmailAudienceNotice();
         setStatus(emailStatus, "Vorlagenentwurf erstellt. Prüfe und bearbeite Betreff und Nachricht vor dem Versand.", "success");
       });
+      const emailTemplatesStorageKey = "wertweit-admin-email-templates-v1";
+      const savedTemplateSelect = document.querySelector("#email-saved-template");
+      function readEmailTemplates() {
+        const parsed = JSON.parse(localStorage.getItem(emailTemplatesStorageKey) ?? "[]");
+        if (!Array.isArray(parsed) || parsed.some((template) =>
+          !template || typeof template.id !== "string" || typeof template.name !== "string" ||
+          typeof template.subject !== "string" || typeof template.body !== "string"
+        )) {
+          throw new Error("Gespeicherte E-Mail-Entwürfe haben ein ungültiges Format. Bitte die Browserdaten prüfen.");
+        }
+        return parsed;
+      }
+      function refreshEmailTemplateOptions() {
+        const templates = readEmailTemplates();
+        savedTemplateSelect.replaceChildren(new Option("Kein Entwurf ausgewählt", ""));
+        for (const template of templates) savedTemplateSelect.add(new Option(template.name, template.id));
+      }
+      function emailPreviewDocument(subject, body) {
+        const paragraphs = body.trim().split(/\n{2,}/).filter(Boolean).map((paragraph) =>
+          `<p style="margin:0 0 16px;">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`
+        ).join("");
+        return `<!doctype html><html lang="de"><meta charset="utf-8"><body style="margin:0;padding:0;background:#f1f3ec;color:#14241f;font-family:Arial,Helvetica,sans-serif"><table role="presentation" style="width:100%;background:#f1f3ec"><tr><td align="center" style="padding:30px 12px"><table role="presentation" style="width:100%;max-width:600px;border:1px solid #e1e5dd;background:#fff"><tr><td style="padding:24px 28px;background:#0b2b24"><img src="https://jamietrading9-design.github.io/wertweit/assets/wertweit-logo.png" width="44" height="44" alt="Wertweit" style="vertical-align:middle;border-radius:11px"><span style="margin-left:11px;color:#fff;font-size:20px;font-weight:bold;line-height:44px;vertical-align:middle">Wertweit</span></td></tr><tr><td style="height:4px;background:#d8f06b"></td></tr><tr><td style="padding:30px 28px 8px"><h1 style="margin:0;color:#123c31;font-family:Georgia,'Times New Roman',serif;font-size:27px;font-weight:normal;line-height:1.3">${escapeHtml(subject)}</h1></td></tr><tr><td style="padding:12px 28px 28px;color:#34433d;font-size:15px;line-height:1.75">${paragraphs}</td></tr><tr><td style="padding:18px 28px;border-top:1px solid #e1e5dd;background:#fafbf8;color:#69746d;font-size:12px;line-height:1.7">Viele Grüße,<br><strong style="color:#123c31">Dein Wertweit-Team</strong><br><a href="https://jamietrading9-design.github.io/wertweit/" style="color:#1c6a4f">Wertweit im Web öffnen</a></td></tr></table></td></tr></table></body></html>`;
+      }
+      try {
+        refreshEmailTemplateOptions();
+      } catch (error) {
+        setStatus(emailStatus, error.message, "error");
+      }
+      document.querySelector("#save-email-template").addEventListener("click", () => {
+        const subject = document.querySelector("#email-subject").value.trim();
+        const body = document.querySelector("#email-body").value.trim();
+        if (!subject || !body) {
+          setStatus(emailStatus, "Zum Speichern zuerst Betreff und Nachricht eintragen.", "error");
+          return;
+        }
+        const name = window.prompt("Name für diesen E-Mail-Entwurf:", subject.slice(0, 60));
+        if (!name?.trim()) return;
+        try {
+          const templates = readEmailTemplates();
+          templates.push({
+            id: crypto.randomUUID(),
+            name: name.trim().slice(0, 80),
+            subject: subject.slice(0, 150),
+            body: body.slice(0, 10000),
+            type: emailDraftType.value,
+            tone: document.querySelector("#email-draft-tone").value,
+          });
+          localStorage.setItem(emailTemplatesStorageKey, JSON.stringify(templates));
+          refreshEmailTemplateOptions();
+          savedTemplateSelect.value = templates.at(-1).id;
+          setStatus(emailStatus, "Entwurf wurde nur in diesem Browser gespeichert.", "success");
+        } catch (error) {
+          setStatus(emailStatus, error.message || "Der Entwurf konnte im Browser nicht gespeichert werden.", "error");
+        }
+      });
+      document.querySelector("#load-email-template").addEventListener("click", () => {
+        try {
+          const template = readEmailTemplates().find((item) => item.id === savedTemplateSelect.value);
+          if (!template) {
+            setStatus(emailStatus, "Wähle zuerst einen gespeicherten Entwurf aus.", "error");
+            return;
+          }
+          document.querySelector("#email-subject").value = template.subject;
+          document.querySelector("#email-body").value = template.body;
+          if (["service", "support", "invoice", "marketing"].includes(template.type)) emailDraftType.value = template.type;
+          if (["friendly", "formal", "direct"].includes(template.tone)) document.querySelector("#email-draft-tone").value = template.tone;
+          if (emailDraftType.value === "marketing") emailAudience.value = "newsletter";
+          updateEmailAudienceNotice();
+          setStatus(emailStatus, `Entwurf „${template.name}“ geladen. Prüfe Inhalt und Empfänger vor dem Versand.`, "success");
+        } catch (error) {
+          setStatus(emailStatus, error.message, "error");
+        }
+      });
+      document.querySelector("#delete-email-template").addEventListener("click", () => {
+        try {
+          const templates = readEmailTemplates();
+          const selected = templates.find((item) => item.id === savedTemplateSelect.value);
+          if (!selected) {
+            setStatus(emailStatus, "Wähle zuerst einen gespeicherten Entwurf aus.", "error");
+            return;
+          }
+          if (!window.confirm(`Entwurf „${selected.name}“ aus diesem Browser löschen?`)) return;
+          localStorage.setItem(emailTemplatesStorageKey, JSON.stringify(templates.filter((item) => item.id !== selected.id)));
+          refreshEmailTemplateOptions();
+          setStatus(emailStatus, "Entwurf aus diesem Browser gelöscht.", "success");
+        } catch (error) {
+          setStatus(emailStatus, error.message, "error");
+        }
+      });
+      const emailPreviewDialog = document.querySelector("#email-preview-dialog");
+      document.querySelector("#preview-email").addEventListener("click", () => {
+        const subject = document.querySelector("#email-subject").value.trim();
+        const body = document.querySelector("#email-body").value.trim();
+        if (!subject || !body) {
+          setStatus(emailStatus, "Für die Vorschau zuerst Betreff und Nachricht eintragen.", "error");
+          return;
+        }
+        document.querySelector("#email-preview-frame").srcdoc = emailPreviewDocument(subject, body);
+        emailPreviewDialog.showModal();
+      });
+      document.querySelector("#close-email-preview").addEventListener("click", () => emailPreviewDialog.close());
       document.querySelector("#email-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const audience = document.querySelector("#email-audience").value;

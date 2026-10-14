@@ -105,6 +105,88 @@ Deno.serve(async (request) => {
     return respond({ error: "Invalid JSON body" }, 400);
   }
 
+  async function recordAdminActivity(
+    action: string,
+    summary: string,
+    targetId: string | null = null,
+    targetLabel = "",
+    metadata: Record<string, unknown> = {},
+  ): Promise<string | null> {
+    const { error } = await supabase.from("admin_activity_log").insert({
+      actor_id: authData.user.id,
+      actor_email: authData.user.email ?? "",
+      action,
+      summary,
+      target_id: targetId,
+      target_label: targetLabel,
+      metadata,
+    });
+    if (!error) return null;
+    console.error("Admin action completed but its activity record could not be saved", {
+      action,
+      actorId: authData.user.id,
+      error: error.message,
+    });
+    return "Die Aktion wurde ausgeführt, aber der Aktivitätsverlauf konnte nicht gespeichert werden.";
+  }
+
+  if (payload.action === "record-admin-activity") {
+    const activityLabels: Record<string, string> = {
+      "send-email": "E-Mail versendet",
+      "create-user": "App-Konto eingeladen oder angelegt",
+      "set-pro-access": "Admin-Pro-Zugriff vergeben",
+      "revoke-pro-access": "Admin-Pro-Zugriff entzogen",
+      "set-user-blocked": "Kontozugriff geändert",
+      "claim-support": "Support-Ticket übernommen",
+      "release-support": "Support-Ticket freigegeben",
+      "close-support": "Support-Ticket geschlossen",
+      "reopen-support": "Support-Ticket wieder geöffnet",
+      "reply-support": "Support-Antwort gesendet",
+      "save-private-admin-note": "Interne Notiz erstellt oder geändert",
+      "delete-private-admin-note": "Interne Notiz gelöscht",
+      "update-maintenance": "Wartungseinstellung geändert",
+      "update-pro-offer": "Pro-Angebotstexte geändert",
+      "update-app-announcement": "App-Hinweis geändert",
+      "save-invoice-settings": "Rechnungsabsender geändert",
+      "save-invoice-customer": "Rechnungskunde angelegt",
+      "update-invoice-customer": "Rechnungskunde geändert",
+      "save-invoice-product": "Rechnungsprodukt gespeichert",
+      "set-invoice-product-active": "Rechnungsproduktstatus geändert",
+      "create-invoice": "App-Rechnung erstellt",
+      "set-invoice-paid": "Rechnungszahlungsstatus geändert",
+      "save-private-sale-settings": "Angaben für Privatverkäufe geändert",
+      "save-private-sale-customer": "Privatkunde angelegt",
+      "create-private-sale-receipt": "Privater Verkaufsbeleg erstellt",
+    };
+    const sourceAction = typeof payload.sourceAction === "string" ? payload.sourceAction : "";
+    const activityLabel = activityLabels[sourceAction];
+    if (!activityLabel) return respond({ error: "This admin action cannot be recorded" }, 400);
+    const targetId = typeof payload.targetId === "string" && /^[0-9a-f-]{36}$/i.test(payload.targetId)
+      ? payload.targetId
+      : null;
+    const targetLabel = typeof payload.targetLabel === "string" ? payload.targetLabel.trim().slice(0, 254) : "";
+    const warning = await recordAdminActivity(
+      sourceAction,
+      activityLabel,
+      targetId,
+      targetLabel,
+    );
+    return respond(warning ? { warning } : { recorded: true });
+  }
+
+  if (payload.action === "list-admin-activity") {
+    const { data, error } = await supabase
+      .from("admin_activity_log")
+      .select("id, actor_email, action, summary, target_id, target_label, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) {
+      console.error("Could not load admin activity history", error.message);
+      return respond({ error: "Admin activity history could not be loaded" }, 502);
+    }
+    return respond({ activities: data ?? [] });
+  }
+
   if (payload.action === "send-email") {
     if (payload.audience !== "selected" && payload.audience !== "newsletter") {
       return respond({ error: "Invalid email recipient group" }, 400);
@@ -256,18 +338,23 @@ Deno.serve(async (request) => {
     const page = Number(payload.page ?? 1);
     const perPage = Number(payload.perPage ?? 50);
     const search = typeof payload.search === "string" ? payload.search.trim().toLowerCase() : "";
+    const accountFilter = typeof payload.accountFilter === "string" ? payload.accountFilter : "all";
+    const sortBy = typeof payload.sortBy === "string" ? payload.sortBy : "standard";
     if (!Number.isInteger(page) || page < 1 || !Number.isInteger(perPage) || perPage < 1 ||
-        perPage > 100 || search.length > 160) {
+        perPage > 100 || search.length > 160 ||
+        !["all", "active", "blocked", "unconfirmed", "pro", "admin"].includes(accountFilter) ||
+        !["standard", "created-asc", "last-sign-in-desc", "email-asc"].includes(sortBy)) {
       return respond({ error: "Invalid pagination values" }, 400);
     }
 
     let users;
     let userTotal: number;
-    if (search) {
+    let accessRows;
+    if (search || accountFilter !== "all" || sortBy !== "standard") {
       const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (error) {
-        console.error("Could not search accounts", error.message);
-        return respond({ error: "Accounts could not be searched" }, 502);
+        console.error("Could not load accounts for filtering", error.message);
+        return respond({ error: "Accounts could not be searched or filtered" }, 502);
       }
       const allUsers = [...data.users];
       const totalPages = Math.ceil((data.total ?? data.users.length) / 1000);
@@ -282,7 +369,45 @@ Deno.serve(async (request) => {
         }
         allUsers.push(...nextPage.users);
       }
-      const matchingUsers = allUsers.filter((user) => (user.email ?? "").toLowerCase().includes(search));
+      const accessResults = await Promise.all(
+        Array.from({ length: Math.ceil(allUsers.length / 500) }, (_, index) =>
+          supabase.from("app_user_access")
+            .select("user_id, blocked, pro_until")
+            .in("user_id", allUsers.slice(index * 500, (index + 1) * 500).map((user) => user.id))
+        ),
+      );
+      const accessError = accessResults.find((result) => result.error)?.error;
+      if (accessError) {
+        console.error("Could not load account access for filtering", accessError.message);
+        return respond({ error: "Account access could not be loaded for filtering" }, 502);
+      }
+      accessRows = accessResults.flatMap((result) => result.data ?? []);
+      const accessByUser = new Map(accessRows.map((access) => [access.user_id, access]));
+      const matchingUsers = allUsers.filter((user) => {
+        const access = accessByUser.get(user.id);
+        const matchesSearch = !search ||
+          (user.email ?? "").toLowerCase().includes(search) ||
+          (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.toLowerCase().includes(search)) ||
+          (typeof user.user_metadata?.name === "string" && user.user_metadata.name.toLowerCase().includes(search));
+        const matchesFilter = accountFilter === "all" ||
+          (accountFilter === "active" && !(access?.blocked ?? false)) ||
+          (accountFilter === "blocked" && (access?.blocked ?? false)) ||
+          (accountFilter === "unconfirmed" && !user.email_confirmed_at) ||
+          (accountFilter === "pro" && Boolean(access?.pro_until && Date.parse(access.pro_until) > Date.now())) ||
+          (accountFilter === "admin" && user.app_metadata?.role === "admin");
+        return matchesSearch && matchesFilter;
+      });
+      if (sortBy === "created-asc") {
+        matchingUsers.sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
+      } else if (sortBy === "last-sign-in-desc") {
+        matchingUsers.sort((left, right) => {
+          const leftDate = left.last_sign_in_at ? Date.parse(left.last_sign_in_at) : Number.NEGATIVE_INFINITY;
+          const rightDate = right.last_sign_in_at ? Date.parse(right.last_sign_in_at) : Number.NEGATIVE_INFINITY;
+          return rightDate - leftDate;
+        });
+      } else if (sortBy === "email-asc") {
+        matchingUsers.sort((left, right) => (left.email ?? "").localeCompare(right.email ?? "", "de"));
+      }
       userTotal = matchingUsers.length;
       users = matchingUsers.slice((page - 1) * perPage, page * perPage);
     } else {
@@ -295,16 +420,19 @@ Deno.serve(async (request) => {
       userTotal = data.total ?? users.length;
     }
 
-    const userIds = users.map((user) => user.id);
-    const { data: accessRows, error: accessError } = await supabase
-      .from("app_user_access")
-      .select("user_id, blocked, pro_until")
-      .in("user_id", userIds);
-    if (accessError) {
-      console.error("Could not load account access", accessError.message);
-      return respond({ error: "Account access could not be loaded" }, 502);
+    if (!accessRows) {
+      const userIds = users.map((user) => user.id);
+      const { data, error: accessError } = await supabase
+        .from("app_user_access")
+        .select("user_id, blocked, pro_until")
+        .in("user_id", userIds);
+      if (accessError) {
+        console.error("Could not load account access", accessError.message);
+        return respond({ error: "Account access could not be loaded" }, 502);
+      }
+      accessRows = data ?? [];
     }
-    const accessByUser = new Map((accessRows ?? []).map((access) => [access.user_id, access]));
+    const accessByUser = new Map(accessRows.map((access) => [access.user_id, access]));
 
     return respond({
       users: users.map((user) => ({
@@ -693,24 +821,39 @@ Deno.serve(async (request) => {
 
   if (payload.action === "list-support") {
     const filter = typeof payload.filter === "string" ? payload.filter : "open";
+    const priority = typeof payload.priority === "string" ? payload.priority : "all";
+    const category = typeof payload.category === "string" ? payload.category : "all";
+    const search = typeof payload.search === "string"
+      ? payload.search.trim().replace(/[^\p{L}\p{N}@._+\- ]/gu, "").slice(0, 160)
+      : "";
     if (!["open", "mine", "all", "closed"].includes(filter)) {
       return respond({ error: "Invalid support filter" }, 400);
     }
+    if (!["all", "red", "yellow", "green"].includes(priority) ||
+        !["all", "account", "payment", "bug", "feature", "other"].includes(category)) {
+      return respond({ error: "Invalid support priority or category filter" }, 400);
+    }
     let threadQuery = supabase
       .from("support_threads")
-      .select("id, user_id, user_email, subject, support_category, support_priority, status, created_at, updated_at, claimed_by, claimed_at")
+      .select("id, user_id, user_email, subject, support_category, support_priority, status, created_at, updated_at, claimed_by, claimed_at", { count: "exact" })
       .order("updated_at", { ascending: false })
       .limit(100);
     if (filter === "open") threadQuery = threadQuery.eq("status", "open");
     if (filter === "mine") threadQuery = threadQuery.eq("claimed_by", authData.user.id);
     if (filter === "closed") threadQuery = threadQuery.eq("status", "closed");
-    const { data: threads, error: threadsError } = await threadQuery;
+    if (priority !== "all") threadQuery = threadQuery.eq("support_priority", priority);
+    if (category !== "all") threadQuery = threadQuery.eq("support_category", category);
+    if (search) {
+      const escapedSearch = search.replace(/[\\%_]/g, "\\$&");
+      threadQuery = threadQuery.or(`subject.ilike.%${escapedSearch}%,user_email.ilike.%${escapedSearch}%`);
+    }
+    const { data: threads, error: threadsError, count: total } = await threadQuery;
     if (threadsError) {
       console.error("Could not list support threads", threadsError.message);
       return respond({ error: "Support inbox could not be loaded" }, 502);
     }
     const threadIds = (threads ?? []).map((thread) => thread.id);
-    if (threadIds.length === 0) return respond({ threads: [] });
+    if (threadIds.length === 0) return respond({ threads: [], total: total ?? 0 });
     const [messagesResult, claimedUsers] = await Promise.all([
       supabase.from("support_messages")
       .select("id, thread_id, sender_is_admin, body, created_at")
@@ -743,6 +886,7 @@ Deno.serve(async (request) => {
     }
     const claimedEmailByUser = new Map(claimedUsers.map(({ id, email }) => [id, email]));
     return respond({
+      total: total ?? 0,
       threads: (threads ?? []).map((thread) => ({
         ...thread,
         email: thread.user_email || "Keine E-Mail",
@@ -1552,13 +1696,43 @@ Deno.serve(async (request) => {
   if (payload.action === "get-settings") {
     const { data, error } = await supabase
       .from("app_settings")
-      .select("maintenance_enabled, maintenance_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
       .eq("id", 1)
       .single();
 
     if (error) {
       console.error("Could not load app settings", error.message);
       return respond({ error: "App settings could not be loaded" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "update-app-announcement") {
+    if (typeof payload.enabled !== "boolean" ||
+        typeof payload.title !== "string" || payload.title.trim().length > 80 ||
+        typeof payload.message !== "string" || payload.message.trim().length > 500) {
+      return respond({ error: "The announcement must fit within the title and message character limits" }, 400);
+    }
+    const title = payload.title.trim();
+    const message = payload.message.trim();
+    if (payload.enabled && (!title || !message)) {
+      return respond({ error: "Enter both a title and a message before enabling the app announcement" }, 400);
+    }
+    const { data, error } = await supabase
+      .from("app_settings")
+      .update({
+        announcement_enabled: payload.enabled,
+        announcement_title: title,
+        announcement_message: message,
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      })
+      .eq("id", 1)
+      .select("announcement_enabled, announcement_title, announcement_message, updated_at")
+      .single();
+    if (error) {
+      console.error("Could not update app announcement", error.message);
+      return respond({ error: "App announcement could not be saved" }, 502);
     }
     return respond({ settings: data });
   }
