@@ -121,6 +121,7 @@ struct PhoneContentView: View {
                     }
                         .tabItem { Label("Übersicht", systemImage: "chart.xyaxis.line") }
                 }
+                .tint(green)
                 footer
             }
         }
