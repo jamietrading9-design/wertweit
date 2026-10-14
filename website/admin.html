@@ -107,8 +107,16 @@
     .invoice-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
     .invoice-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; font-size: 12px; }
     .admin-nav { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 20px; padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
-    .admin-nav button { flex: none; min-height: 38px; }
-    .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; }
+    .card { border-radius: 18px; box-shadow: 0 12px 34px rgba(11, 43, 36, .045); }
+    input, textarea, select { border-radius: 10px; transition: border-color .18s ease, box-shadow .18s ease; }
+    input:focus, textarea:focus, select:focus { border-color: var(--leaf); outline: none; box-shadow: 0 0 0 3px rgba(28, 106, 79, .12); }
+    button { border-radius: 10px; transition: background .18s ease, transform .18s ease, box-shadow .18s ease; }
+    button:not(:disabled):hover { box-shadow: 0 5px 14px rgba(11, 43, 36, .12); transform: translateY(-1px); }
+    button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid rgba(28, 106, 79, .45); outline-offset: 3px; }
+    .admin-nav { position: sticky; top: 8px; z-index: 5; flex-wrap: nowrap; padding: 9px; border: 1px solid var(--line); border-radius: 14px; background: rgba(244, 245, 239, .94); box-shadow: 0 8px 24px rgba(11, 43, 36, .07); backdrop-filter: blur(12px); }
+    .admin-nav button { flex: none; min-height: 38px; border: 1px solid transparent; background: transparent; color: var(--muted); }
+    .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; box-shadow: 0 4px 12px rgba(28, 106, 79, .2); }
+    .admin-nav button:not([aria-current="page"]):hover { border-color: var(--line); background: white; color: var(--forest); }
     .email-template-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 14px 0; }
     .email-template-actions label { flex: 1 1 240px; }
     .activity-list { display: grid; gap: 9px; margin-top: 16px; }
@@ -1660,6 +1668,12 @@
           ["Adminrolle", profile.isAdmin ? "Admin" : "Nutzer"],
           ["Admin-Pro-Freigabe", profile.adminProUntil && new Date(profile.adminProUntil) > new Date()
             ? `Aktiv bis ${formatDate(profile.adminProUntil)}` : "Keine aktive Admin-Pro-Freigabe"],
+          ["Demo-Pro", profile.demoProUntil
+            ? `${new Date(profile.demoProUntil) > new Date() ? "Aktiv bis" : "Abgelaufen am"} ${formatDate(profile.demoProUntil)}`
+            : "Noch nicht aktiviert"],
+          ["Demo-E-Mail", profile.demoProConfirmationSentAt
+            ? `Versendet ${formatDate(profile.demoProConfirmationSentAt)}`
+            : profile.demoProConfirmationError ? `Fehler: ${profile.demoProConfirmationError}` : "Nicht versendet"],
           ["Produktneuigkeiten", profile.emailUpdatesSubscribed ? "Eingewilligt" : "Nicht eingewilligt"],
         ];
         for (const [label, value] of values) {
@@ -1763,7 +1777,7 @@
           () => openPersonProfile(profile.id),
         );
         document.querySelector("#person-store-note").textContent =
-          "Apple-App-Store-Abos werden nicht an Supabase gespiegelt. „Admin-Pro-Freigabe“ zeigt nur die manuell verwaltete Freigabe, nicht den Store-Abo-Status.";
+          "Apple-App-Store-Abos werden nicht an Supabase gespiegelt. Die Demo-Pro-Freigabe ist kostenlos, einmalig und endet nach sieben Tagen; sie ist kein Kauf und keine Rechnung.";
       }
 
       async function openPersonProfile(userId) {

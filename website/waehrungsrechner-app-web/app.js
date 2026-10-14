@@ -15,6 +15,8 @@ const state = {
   rate: null,
   rateDate: "",
   isPro: false,
+  demoClaimAvailable: false,
+  demoClaimInProgress: false,
   notifications: [],
   supportThreads: [],
   historyDays: 7,
@@ -217,12 +219,27 @@ async function portal(action, values = {}) {
 async function loadAccess() {
   try {
     const access = await portal("get-access");
-    state.isPro = access.hasAdminPro === true;
+    state.isPro = access.hasProAccess === true;
+    state.demoClaimAvailable = access.demoClaimAvailable === true;
     $("#pro-status").textContent = state.isPro ? "Wertweit Pro aktiv" : "Kostenloses Konto";
     $("#pro-title").textContent = state.isPro ? "Wertweit Pro ist aktiv" : "Mehr Überblick auf Reisen.";
-    $("#pro-description").textContent = state.isPro
-      ? `Dein Web-Konto hat Pro-Zugriff bis ${dateText(access.proUntil?.slice(0, 10))}.`
-      : "Der Rechner bleibt kostenlos. Pro bündelt die Reise- und Analysewerkzeuge. Webkäufe sind noch nicht verfügbar.";
+    $("#pro-description").textContent = access.hasDemoPro
+      ? `Dein kostenloser Demo-Zugang ist bis ${dateText(access.demoProUntil?.slice(0, 10))} aktiv.`
+      : state.isPro
+      ? `Dein Konto hat Pro-Zugriff bis ${dateText(access.proUntil?.slice(0, 10))}.`
+      : access.demoProUntil
+      ? "Dein einmaliger Demo-Zugang ist abgelaufen. Das Konto bleibt kostenlos nutzbar."
+      : "Der Rechner bleibt kostenlos. Pro bündelt die Reise- und Analysewerkzeuge.";
+    $("#demo-pro-activate").hidden = !state.demoClaimAvailable;
+    $("#demo-pro-activate").disabled = state.demoClaimInProgress;
+    $("#demo-pro-activate").textContent = state.demoClaimInProgress ? "Demo wird aktiviert …" : "Demo-Pro 7 Tage aktivieren";
+    if (access.hasDemoPro) {
+      setStatus($("#demo-pro-status"), `Demo aktiv bis ${dateText(access.demoProUntil?.slice(0, 10))}. Keine Zahlung, keine automatische Verlängerung.`, "success");
+    } else if (access.demoProUntil) {
+      setStatus($("#demo-pro-status"), "Der einmalige Demo-Zugang wurde bereits verwendet.");
+    } else {
+      setStatus($("#demo-pro-status"), "");
+    }
     renderTravel();
     renderExchange();
     renderHistory();
@@ -529,6 +546,35 @@ $("#swap-currencies").addEventListener("click", () => {
 });
 $("#refresh-rate").addEventListener("click", loadCurrentRate);
 $("#destination").addEventListener("change", renderTravel);
+$("#demo-pro-activate").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  state.demoClaimInProgress = true;
+  button.disabled = true;
+  button.textContent = "Demo wird aktiviert …";
+  setStatus($("#demo-pro-status"), "Demo-Zugang wird geprüft und aktiviert …");
+  try {
+    const result = await portal("claim-demo-pro");
+    await loadAccess();
+    const until = dateText(result.demoProUntil?.slice(0, 10));
+    setStatus(
+      $("#demo-pro-status"),
+      result.emailWarning
+        ? `Demo-Pro ist bis ${until} aktiv. E-Mail-Problem: ${result.emailWarning}`
+        : `Demo-Pro ist bis ${until} aktiv. Keine Zahlung und keine automatische Verlängerung. Eine Demo-Bestätigung wurde an deine Konto-E-Mail gesendet.`,
+      result.emailWarning ? "error" : "success",
+    );
+  } catch (error) {
+    setStatus($("#demo-pro-status"), error.message, "error");
+  } finally {
+    state.demoClaimInProgress = false;
+    button.disabled = !state.demoClaimAvailable;
+    button.hidden = !state.demoClaimAvailable;
+    button.textContent = "Demo-Pro 7 Tage aktivieren";
+    renderTravel();
+    renderExchange();
+    renderHistory();
+  }
+});
 $("#exchange-modes").addEventListener("click", (event) => {
   const button = event.target.closest("[data-mode]");
   if (!button) return;

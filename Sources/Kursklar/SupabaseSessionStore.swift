@@ -82,6 +82,8 @@ final class SupabaseSessionStore: ObservableObject {
     @Published private(set) var configurationError: String?
     @Published private(set) var isBlocked = false
     @Published private(set) var adminProUntil: String?
+    @Published private(set) var demoProClaimAvailable = false
+    @Published private(set) var demoProStatusMessage: String?
     @Published private(set) var isAwaitingEmailConfirmation = false
     @Published private(set) var emailConfirmationEmail = ""
     @Published private(set) var emailUpdatesSubscribed = false
@@ -262,6 +264,8 @@ final class SupabaseSessionStore: ObservableObject {
             session = nil
             isBlocked = false
             adminProUntil = nil
+            demoProClaimAvailable = false
+            demoProStatusMessage = nil
             isAwaitingEmailConfirmation = false
             emailConfirmationEmail = ""
             supportThreads = []
@@ -310,12 +314,47 @@ final class SupabaseSessionStore: ObservableObject {
             )
             let access = try JSONDecoder().decode(AccountAccessResponse.self, from: data)
             isBlocked = false
-            adminProUntil = access.hasAdminPro ? access.proUntil : nil
+            adminProUntil = access.hasProAccess ? access.proUntil : nil
+            demoProClaimAvailable = access.demoClaimAvailable
         } catch SupabaseRequestError.invalidResponse(403, _) {
             isBlocked = true
             adminProUntil = nil
+            demoProClaimAvailable = false
         } catch {
             statusMessage = "Dein Kontozugriff konnte nicht geprüft werden. Bitte prüfe deine Internetverbindung."
+        }
+    }
+
+    func claimDemoPro() async -> String? {
+        guard session != nil else {
+            return "Bitte melde dich an, um den Demo-Zugang zu aktivieren."
+        }
+        demoProStatusMessage = nil
+        do {
+            try await refreshSessionIfNeeded()
+            guard let currentSession = self.session else {
+                return "Bitte melde dich erneut an."
+            }
+            let data = try await requestData(
+                path: ["functions", "v1", "user-portal"],
+                body: PortalAction(action: "claim-demo-pro"),
+                accessToken: currentSession.accessToken
+            )
+            let result = try JSONDecoder().decode(DemoProClaimResponse.self, from: data)
+            await refreshAccountAccess()
+            demoProStatusMessage = result.emailWarning.map {
+                "Demo-Pro ist bis \(Self.displayDate(result.demoProUntil)) aktiv. Die Bestätigungs-E-Mail konnte nicht gesendet werden: \($0)"
+            } ?? "Demo-Pro ist bis \(Self.displayDate(result.demoProUntil)) aktiv. Es wurde nichts berechnet; es gibt keine automatische Verlängerung."
+            return demoProStatusMessage
+        } catch SupabaseRequestError.invalidResponse(_, let serverError) {
+            let errorMessage = serverError?.message ?? serverError?.msg ?? serverError?.errorDescription
+                ?? "Der Demo-Zugang konnte nicht aktiviert werden."
+            demoProStatusMessage = errorMessage
+            return errorMessage
+        } catch {
+            let errorMessage = "Der Demo-Zugang konnte nicht aktiviert werden. Bitte versuche es erneut."
+            demoProStatusMessage = errorMessage
+            return errorMessage
         }
     }
 
@@ -548,6 +587,7 @@ final class SupabaseSessionStore: ObservableObject {
         ) else {
             throw SupabaseRequestError.invalidConfiguration
         }
+
         components.queryItems = query.isEmpty ? nil : query
         guard let url = components.url else {
             throw SupabaseRequestError.invalidConfiguration
@@ -573,6 +613,17 @@ final class SupabaseSessionStore: ObservableObject {
             throw SupabaseRequestError.invalidResponse(status, serverError)
         }
         return data
+    }
+
+    private static func displayDate(_ value: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        var date = formatter.date(from: value)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            date = formatter.date(from: value)
+        }
+        guard let date else { return value }
+        return date.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "de_DE")))
     }
 
     private func authenticationStatusMessage(for error: Error, operation: AuthOperation) -> String {
@@ -697,7 +748,13 @@ private struct CreateSupportResponse: Decodable {
 
 private struct AccountAccessResponse: Decodable {
     let proUntil: String?
-    let hasAdminPro: Bool
+    let hasProAccess: Bool
+    let demoClaimAvailable: Bool
+}
+
+private struct DemoProClaimResponse: Decodable {
+    let demoProUntil: String
+    let emailWarning: String?
 }
 
 private struct SupportThreadsResponse: Decodable {

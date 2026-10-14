@@ -60,6 +60,7 @@ struct PhoneContentView: View {
     @State private var supportBody = ""
     @State private var supportSending = false
     @State private var notificationTestMessage: String?
+    @State private var demoProMessage: String?
     @StateObject private var notificationTester = LocalNotificationTester()
     private let ink = Color(red: 0.10, green: 0.16, blue: 0.15)
     private let green = Color(red: 0.12, green: 0.39, blue: 0.30)
@@ -128,6 +129,14 @@ struct PhoneContentView: View {
             dismissKeyboard()
         }
         .preferredColorScheme(.light)
+        .alert("Demo-Zugang", isPresented: Binding(
+            get: { demoProMessage != nil },
+            set: { isPresented in if !isPresented { demoProMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { demoProMessage = nil }
+        } message: {
+            Text(demoProMessage ?? "")
+        }
         .overlay {
             if showLoadingPage {
                 loadingPage
@@ -188,6 +197,12 @@ struct PhoneContentView: View {
                     offerMessage: authStore.proOfferMessage,
                     monthlyOfferMessage: authStore.proMonthlyOfferMessage,
                     yearlyOfferMessage: authStore.proYearlyOfferMessage,
+                    demoClaimAvailable: authStore.demoProClaimAvailable,
+                    onClaimDemoPro: {
+                        let message = await authStore.claimDemoPro()
+                        subscriptionStore.setAdminPro(until: authStore.adminProUntil)
+                        demoProMessage = message
+                    },
                     onShowPrivacy: { activeSheet = .legal(.privacy) },
                     onClose: { activeSheet = nil }
                 )
@@ -950,12 +965,15 @@ private enum ProBillingPeriod: String, CaseIterable, Identifiable {
 }
 
 private struct ProPaywallView: View {
+    @State private var isClaimingDemo = false
     @State private var billingPeriod: ProBillingPeriod = .yearly
     @ObservedObject var store: SubscriptionStore
     let offerTitle: String
     let offerMessage: String
     let monthlyOfferMessage: String
     let yearlyOfferMessage: String
+    let demoClaimAvailable: Bool
+    let onClaimDemoPro: () async -> Void
     let onShowPrivacy: () -> Void
     let onClose: () -> Void
 
@@ -1016,6 +1034,42 @@ private struct ProPaywallView: View {
 
                 subscriptionOptions
 
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("7 Tage kostenlos testen", systemImage: "sparkles")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(green)
+                    Text("Demo-Zugang ohne Zahlungsdaten: 7 Tage Pro, einmal pro Konto. Es wird nichts gekauft oder abgebucht, es gibt keine automatische Verlängerung und keine Rechnung. Du erhältst nur eine klar als Demo gekennzeichnete Bestätigungs-E-Mail.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ink.opacity(0.64))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if demoClaimAvailable {
+                        Button {
+                            Task {
+                                isClaimingDemo = true
+                                await onClaimDemoPro()
+                                isClaimingDemo = false
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isClaimingDemo { ProgressView().tint(ink) }
+                                Text(isClaimingDemo ? "Demo wird aktiviert …" : "Demo-Pro 7 Tage aktivieren")
+                            }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(ink)
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                                .background(lime, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isClaimingDemo)
+                    } else {
+                        Text("Der einmalige Demo-Zugang wurde für dieses Konto bereits aktiviert.")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(ink.opacity(0.58))
+                    }
+                }
+                .padding(16)
+                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+
                 VStack(alignment: .leading, spacing: 14) {
                     proBenefit("Reisebudgets, Trinkgeld und Preis-Richtwerte", icon: "airplane")
                     proBenefit("Gebührenvergleich und Rückwärtsrechnung", icon: "percent")
@@ -1030,7 +1084,7 @@ private struct ProPaywallView: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(green)
 
-                Text("Für die App ist ein Wertweit-Konto erforderlich. Abrechnung und Kündigung des Pro-Abos laufen getrennt davon über deinen Apple Account.")
+                Text("Für die App ist ein Wertweit-Konto erforderlich. Ein echtes Pro-Abo wird von Apple abgerechnet und dort verwaltet. Der kostenlose Demo-Zugang ist kein Kauf und wird nicht verlängert.")
                     .font(.system(size: 11))
                     .foregroundStyle(ink.opacity(0.52))
                     .fixedSize(horizontal: false, vertical: true)

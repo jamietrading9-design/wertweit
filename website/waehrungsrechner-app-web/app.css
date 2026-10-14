@@ -96,6 +96,7 @@ input, select { width: 100%; min-height: 46px; padding: 11px 13px; border: 1px s
 .pro-card .pro-mark { display: inline-grid; width: 42px; height: 42px; place-items: center; margin-bottom: 17px; border-radius: 13px; color: var(--forest); background: var(--lime); font-size: 23px; }
 .pro-card .button { margin-top: 13px; }
 .fine-print { margin: 20px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.travel-tips p { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .settings-card { max-width: 620px; }
 .settings-card p { color: var(--muted); font-size: 13px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 0; border-top: 1px solid var(--line); }

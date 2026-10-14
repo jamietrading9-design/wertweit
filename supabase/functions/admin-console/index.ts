@@ -464,9 +464,12 @@ Deno.serve(async (request) => {
     }
     if (!account.user) return respond({ error: "Account not found" }, 404);
     const user = account.user;
-    const [accessResult, opensResult, ticketsResult, notesResult, preferenceResult, invoiceCustomersResult] =
+    const [accessResult, demoAccessResult, opensResult, ticketsResult, notesResult, preferenceResult, invoiceCustomersResult] =
       await Promise.all([
         supabase.from("app_user_access").select("blocked, pro_until, updated_at").eq("user_id", user.id).maybeSingle(),
+        supabase.from("demo_pro_entitlements")
+          .select("activated_at, expires_at, confirmation_sent_at, confirmation_error")
+          .eq("user_id", user.id).maybeSingle(),
         supabase.from("app_open_events").select("opened_at", { count: "exact" }).eq("user_id", user.id)
           .order("opened_at", { ascending: false }).limit(30),
         supabase.from("support_threads")
@@ -484,6 +487,7 @@ Deno.serve(async (request) => {
       ]);
     const queryErrors = [
       accessResult.error,
+      demoAccessResult.error,
       opensResult.error,
       ticketsResult.error,
       notesResult.error,
@@ -546,6 +550,10 @@ Deno.serve(async (request) => {
         isAdmin: user.app_metadata?.role === "admin",
         blocked: accessResult.data?.blocked ?? false,
         adminProUntil: accessResult.data?.pro_until ?? null,
+        demoProActivatedAt: demoAccessResult.data?.activated_at ?? null,
+        demoProUntil: demoAccessResult.data?.expires_at ?? null,
+        demoProConfirmationSentAt: demoAccessResult.data?.confirmation_sent_at ?? null,
+        demoProConfirmationError: demoAccessResult.data?.confirmation_error ?? null,
         accessUpdatedAt: accessResult.data?.updated_at ?? null,
         emailUpdatesSubscribed: preferenceResult.data?.subscribed ?? false,
         emailUpdatesSubscribedAt: preferenceResult.data?.subscribed_at ?? null,

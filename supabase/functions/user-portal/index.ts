@@ -71,10 +71,128 @@ Deno.serve(async (request) => {
   }
 
   if (payload.action === "get-access") {
-    const proUntil = access?.pro_until ?? null;
+    const { data: demoAccess, error: demoAccessError } = await supabase
+      .from("demo_pro_entitlements")
+      .select("expires_at, confirmation_sent_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (demoAccessError) {
+      console.error("Could not load demo Pro access", demoAccessError.message);
+      return respond({ error: "Demo Pro access could not be loaded" }, 502);
+    }
+    const adminProUntil = access?.pro_until ?? null;
+    const demoProUntil = demoAccess?.expires_at ?? null;
+    const activeEntitlements = [adminProUntil, demoProUntil]
+      .filter((value): value is string => value !== null && Date.parse(value) > Date.now());
+    const proUntil = activeEntitlements.sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
     return respond({
       proUntil,
-      hasAdminPro: proUntil !== null && Date.parse(proUntil) > Date.now(),
+      hasAdminPro: adminProUntil !== null && Date.parse(adminProUntil) > Date.now(),
+      hasProAccess: proUntil !== null,
+      hasDemoPro: demoProUntil !== null && Date.parse(demoProUntil) > Date.now(),
+      demoProUntil,
+      demoClaimAvailable: demoAccess === null,
+      demoConfirmationSent: demoAccess?.confirmation_sent_at !== null && demoAccess?.confirmation_sent_at !== undefined,
+    });
+  }
+
+  if (payload.action === "claim-demo-pro") {
+    const email = authData.user.email?.trim();
+    if (!email || !authData.user.email_confirmed_at) {
+      return respond({ error: "Bitte bestätige zuerst deine E-Mail-Adresse, um den Demo-Zugang zu aktivieren." }, 403);
+    }
+
+    let { data: demoAccess, error: demoAccessError } = await supabase
+      .from("demo_pro_entitlements")
+      .select("expires_at, confirmation_sent_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (demoAccessError) {
+      console.error("Could not check demo Pro eligibility", demoAccessError.message);
+      return respond({ error: "Demo Pro eligibility could not be checked" }, 502);
+    }
+
+    if (!demoAccess) {
+      const activatedAt = new Date();
+      const expiresAt = new Date(activatedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const { data, error } = await supabase
+        .from("demo_pro_entitlements")
+        .insert({
+          user_id: userId,
+          activated_at: activatedAt.toISOString(),
+          expires_at: expiresAt.toISOString(),
+        })
+        .select("expires_at, confirmation_sent_at")
+        .maybeSingle();
+      if (error?.code !== "23505" && error) {
+        console.error("Could not activate demo Pro access", error.message);
+        return respond({ error: "Demo Pro access could not be activated" }, 502);
+      }
+      if (data) {
+        demoAccess = data;
+      } else {
+        const retry = await supabase
+          .from("demo_pro_entitlements")
+          .select("expires_at, confirmation_sent_at")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (retry.error || !retry.data) {
+          console.error("Could not reload demo Pro access after concurrent activation", retry.error?.message);
+          return respond({ error: "Demo Pro access could not be confirmed" }, 502);
+        }
+        demoAccess = retry.data;
+      }
+    }
+
+    if (Date.parse(demoAccess.expires_at) <= Date.now()) {
+      return respond({ error: "Dein einmaliger Demo-Zugang wurde bereits verwendet und ist abgelaufen." }, 409);
+    }
+
+    let confirmationEmailSent = demoAccess.confirmation_sent_at !== null;
+    let emailWarning: string | null = null;
+    if (!confirmationEmailSent) {
+      const expiresAt = new Date(demoAccess.expires_at).toLocaleString("de-DE", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: "Europe/Berlin",
+      });
+      try {
+        const delivery = await sendViaGmail(
+          [email],
+          "Dein Wertweit-Pro-Demozugang ist aktiv",
+          `Dein kostenloser Wertweit-Pro-Demozugang ist jetzt für 7 Tage aktiv (bis ${expiresAt} Uhr).\n\nDies ist eine Demo-Bestätigung, keine Rechnung und kein Kaufbeleg. Es wurde keine Zahlung ausgelöst, es werden keine Zahlungsdaten benötigt und es verlängert sich nichts automatisch.\n\nNach Ablauf endet der Demo-Zugang automatisch. Dein Konto bleibt kostenlos nutzbar.`,
+        );
+        if (delivery.sent !== 1 || delivery.failed.length > 0) {
+          emailWarning = delivery.failed[0]?.error ?? "Die Bestätigungs-E-Mail konnte nicht zugestellt werden.";
+        } else {
+          const { error } = await supabase
+            .from("demo_pro_entitlements")
+            .update({ confirmation_sent_at: new Date().toISOString(), confirmation_error: null })
+            .eq("user_id", userId);
+          if (error) {
+            console.error("Demo email was sent but delivery status could not be saved", error.message);
+            emailWarning = "Die E-Mail wurde versendet, aber ihr Versandstatus konnte nicht gespeichert werden.";
+          } else {
+            confirmationEmailSent = true;
+          }
+        }
+      } catch (error) {
+        emailWarning = error instanceof Error ? error.message : "Die Bestätigungs-E-Mail konnte nicht gesendet werden.";
+      }
+      if (emailWarning) {
+        const { error } = await supabase
+          .from("demo_pro_entitlements")
+          .update({ confirmation_error: emailWarning.slice(0, 500) })
+          .eq("user_id", userId);
+        if (error) console.error("Could not save demo email delivery failure", error.message);
+      }
+    }
+
+    return respond({
+      granted: true,
+      demoProUntil: demoAccess.expires_at,
+      confirmationEmailSent,
+      emailWarning,
     });
   }
 
