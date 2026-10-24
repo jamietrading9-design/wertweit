@@ -198,14 +198,29 @@
         <p><button id="save-maintenance" type="button">Einstellung speichern</button></p>
         <p id="maintenance-status" class="status" role="status"></p>
       </section>
+      <section class="card" data-admin-page="settings" aria-labelledby="website-maintenance-title">
+        <div class="card-heading"><h2 id="website-maintenance-title">Website-Wartung</h2><span id="website-maintenance-state" class="status"></span></div>
+        <label class="setting"><input id="website-maintenance-enabled" type="checkbox"> Öffentliche Website auf Wartungsseite umschalten</label>
+        <label>Hinweis für Website-Besucher<textarea id="website-maintenance-message" maxlength="500" required></textarea></label>
+        <p class="notice">Dies schaltet nur die öffentliche Website um. Die Admin-Adresse bleibt erreichbar, damit du die Wartung wieder ausschalten kannst.</p>
+        <p><button id="save-website-maintenance" type="button">Website-Einstellung speichern</button></p>
+        <p id="website-maintenance-status" class="status" role="status"></p>
+      </section>
       <section class="card" data-admin-page="settings" aria-labelledby="announcement-heading">
-        <div class="card-heading"><h2 id="announcement-heading">Hinweis in der App</h2></div>
-        <p class="notice">Dieser Hinweis erscheint für angemeldete Nutzer oben in der iPhone-App und Web-App. Er eignet sich für wichtige Informationen und kann jederzeit ausgeschaltet werden.</p>
+        <div class="card-heading"><h2 id="announcement-heading">Broadcast-Hinweis</h2></div>
+        <p class="notice">Zeigt einen Hinweis in der iPhone-App, auf der Website oder an beiden Orten. Dies ist kein E-Mail-Versand und keine Push-Mitteilung.</p>
+        <label>Ziel
+          <select id="announcement-target">
+            <option value="app">Nur App</option>
+            <option value="website">Nur Website</option>
+            <option value="both">App und Website</option>
+          </select>
+        </label>
         <label class="setting"><input id="announcement-enabled" type="checkbox"> Hinweis anzeigen</label>
         <div class="fields">
           <label>Überschrift<input id="announcement-title" maxlength="80"></label>
           <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
-          <button id="save-announcement" type="button">Hinweis speichern</button>
+          <button id="save-announcement" type="button">Broadcast speichern</button>
         </div>
         <p id="announcement-status" class="status" role="status"></p>
       </section>
@@ -588,6 +603,7 @@
     let privateSaleCustomers = [];
     let privateSaleReceipts = [];
     let selectedInvoiceCustomer = null;
+    let currentAdminSettings = null;
     let invoicePage = 1;
     let invoiceTotal = 0;
     let customerPage = 1;
@@ -598,7 +614,7 @@
     const auditedAdminActions = new Set([
       "send-email", "create-user", "set-pro-access", "revoke-pro-access", "set-user-blocked",
       "claim-support", "release-support", "close-support", "reopen-support", "reply-support",
-      "save-private-admin-note", "delete-private-admin-note", "update-maintenance", "update-pro-offer",
+      "save-private-admin-note", "delete-private-admin-note", "update-maintenance", "update-site-maintenance", "update-pro-offer",
       "update-app-announcement",
       "save-invoice-settings", "save-invoice-customer", "update-invoice-customer", "save-invoice-product",
       "set-invoice-product-active", "create-invoice", "set-invoice-paid", "save-private-sale-settings",
@@ -689,6 +705,10 @@
             data?.invoice?.id ?? data?.receipt?.id ?? null;
           const targetLabel = action === "send-email"
             ? (values.audience === "newsletter" ? "Newsletter-Abonnenten" : "Ausgewählte Konten")
+            : action === "update-app-announcement"
+            ? `Broadcast: ${values.target === "website" ? "Website" : values.target === "both" ? "App und Website" : "App"}`
+            : action === "update-site-maintenance"
+            ? "Öffentliche Website"
             : "";
           const { data: auditResult, error: auditError } = await supabase.functions.invoke("admin-console", {
             body: { action: "record-admin-activity", sourceAction: action, targetId, targetLabel },
@@ -701,6 +721,7 @@
             if (document.querySelector('[data-admin-tab="activity"][aria-current="page"]')) await loadAdminActivity();
           }
         }
+
         return data;
       }
 
@@ -720,7 +741,7 @@
           email: ["E-Mail", "Entwürfe erstellen, prüfen und gezielt versenden."],
           "person-detail": ["Personenakte", "Zugehörige Konto-, Nutzungs-, Rechnungs- und Supportdaten."],
           support: ["Support-Postfach", "Tickets prüfen, übernehmen und intern dokumentieren."],
-          settings: ["Einstellungen", "Wartung, Pro-Angebot und Rechnungsabsender konfigurieren."],
+          settings: ["Einstellungen", "App und Website, Pro-Angebot und Rechnungsabsender konfigurieren."],
           invoices: ["App-Rechnungen", "Geschäftsrechnungen erstellen und im Archiv verwalten."],
           customers: ["Kunden", "Kundenkonten für App-Rechnungen bearbeiten und gruppieren."],
           private: ["Private Verkäufe", "Getrennte private Verkaufsbelege erstellen und verwalten."],
@@ -741,12 +762,14 @@
       async function loadSettings(settings) {
         setStatus(maintenanceStatus, "Wird geladen …");
         try {
+          currentAdminSettings = settings;
           document.querySelector("#maintenance-enabled").checked = settings.maintenance_enabled;
           document.querySelector("#maintenance-message").value = settings.maintenance_message;
           document.querySelector("#maintenance-state").textContent = settings.maintenance_enabled ? "App ist gesperrt" : "App ist aktiv";
-          document.querySelector("#announcement-enabled").checked = settings.announcement_enabled === true;
-          document.querySelector("#announcement-title").value = settings.announcement_title ?? "";
-          document.querySelector("#announcement-message").value = settings.announcement_message ?? "";
+          document.querySelector("#website-maintenance-enabled").checked = settings.website_maintenance_enabled === true;
+          document.querySelector("#website-maintenance-message").value = settings.website_maintenance_message ?? "";
+          document.querySelector("#website-maintenance-state").textContent = settings.website_maintenance_enabled ? "Website zeigt Wartung" : "Website ist aktiv";
+          loadAnnouncementTarget(document.querySelector("#announcement-target").value);
           document.querySelector("#pro-offer-title").value = settings.pro_offer_title;
           document.querySelector("#pro-offer-message").value = settings.pro_offer_message;
           document.querySelector("#pro-monthly-message").value = settings.pro_monthly_offer_message;
@@ -755,6 +778,21 @@
         } catch (error) {
           setStatus(maintenanceStatus, error.message, "error");
         }
+      }
+
+      function loadAnnouncementTarget(target) {
+        const appTarget = target === "app" || target === "both";
+        const siteTarget = target === "website" || target === "both";
+        const appEnabled = currentAdminSettings?.announcement_enabled === true;
+        const siteEnabled = currentAdminSettings?.website_announcement_enabled === true;
+        document.querySelector("#announcement-enabled").checked =
+          target === "both" ? appEnabled && siteEnabled : siteTarget ? siteEnabled : appEnabled;
+        document.querySelector("#announcement-title").value = siteTarget && !appTarget
+          ? currentAdminSettings?.website_announcement_title ?? ""
+          : currentAdminSettings?.announcement_title ?? "";
+        document.querySelector("#announcement-message").value = siteTarget && !appTarget
+          ? currentAdminSettings?.website_announcement_message ?? ""
+          : currentAdminSettings?.announcement_message ?? "";
       }
 
       async function loadInvoiceWorkspace() {
@@ -2232,21 +2270,51 @@
         }
       });
 
+      document.querySelector("#save-website-maintenance").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        setBusy(button, true);
+        setStatus(document.querySelector("#website-maintenance-status"), "Website-Einstellung wird gespeichert …");
+        try {
+          const { settings } = await callAdmin("update-site-maintenance", {
+            enabled: document.querySelector("#website-maintenance-enabled").checked,
+            message: document.querySelector("#website-maintenance-message").value,
+          });
+          Object.assign(currentAdminSettings, settings);
+          document.querySelector("#website-maintenance-state").textContent =
+            settings.website_maintenance_enabled ? "Website zeigt Wartung" : "Website ist aktiv";
+          setStatus(
+            document.querySelector("#website-maintenance-status"),
+            "Website-Einstellung gespeichert. Die öffentliche Website übernimmt sie bei der nächsten Aktualisierung.",
+            "success",
+          );
+        } catch (error) {
+          setStatus(document.querySelector("#website-maintenance-status"), error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      document.querySelector("#announcement-target").addEventListener("change", (event) => {
+        loadAnnouncementTarget(event.currentTarget.value);
+      });
+
       document.querySelector("#save-announcement").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         setBusy(button, true);
-        setStatus(announcementStatus, "App-Hinweis wird gespeichert …");
+        setStatus(announcementStatus, "Broadcast wird gespeichert …");
         try {
           const { settings } = await callAdmin("update-app-announcement", {
+            target: document.querySelector("#announcement-target").value,
             enabled: document.querySelector("#announcement-enabled").checked,
             title: document.querySelector("#announcement-title").value,
             message: document.querySelector("#announcement-message").value,
           });
+          Object.assign(currentAdminSettings, settings);
           setStatus(
             announcementStatus,
-            settings.announcement_enabled
-              ? "Hinweis gespeichert. Nutzer sehen ihn nach der nächsten Statusaktualisierung."
-              : "App-Hinweis ausgeschaltet.",
+            document.querySelector("#announcement-enabled").checked
+              ? "Broadcast gespeichert. App und Website zeigen ihn nach der nächsten Statusaktualisierung."
+              : "Broadcast für das ausgewählte Ziel ausgeschaltet.",
             "success",
           );
         } catch (error) {

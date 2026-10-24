@@ -145,8 +145,9 @@ Deno.serve(async (request) => {
       "save-private-admin-note": "Interne Notiz erstellt oder geändert",
       "delete-private-admin-note": "Interne Notiz gelöscht",
       "update-maintenance": "Wartungseinstellung geändert",
+      "update-site-maintenance": "Website-Wartungseinstellung geändert",
       "update-pro-offer": "Pro-Angebotstexte geändert",
-      "update-app-announcement": "App-Hinweis geändert",
+      "update-app-announcement": "Broadcast-Hinweis geändert",
       "save-invoice-settings": "Rechnungsabsender geändert",
       "save-invoice-customer": "Rechnungskunde angelegt",
       "update-invoice-customer": "Rechnungskunde geändert",
@@ -1704,7 +1705,7 @@ Deno.serve(async (request) => {
   if (payload.action === "get-settings") {
     const { data, error } = await supabase
       .from("app_settings")
-      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message, website_maintenance_enabled, website_maintenance_message, website_announcement_enabled, website_announcement_title, website_announcement_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
       .eq("id", 1)
       .single();
 
@@ -1716,6 +1717,10 @@ Deno.serve(async (request) => {
   }
 
   if (payload.action === "update-app-announcement") {
+    const target = payload.target ?? "app";
+    if (target !== "app" && target !== "website" && target !== "both") {
+      return respond({ error: "Choose the app, the website, or both as the announcement target" }, 400);
+    }
     if (typeof payload.enabled !== "boolean" ||
         typeof payload.title !== "string" || payload.title.trim().length > 80 ||
         typeof payload.message !== "string" || payload.message.trim().length > 500) {
@@ -1724,23 +1729,57 @@ Deno.serve(async (request) => {
     const title = payload.title.trim();
     const message = payload.message.trim();
     if (payload.enabled && (!title || !message)) {
-      return respond({ error: "Enter both a title and a message before enabling the app announcement" }, 400);
+      return respond({ error: "Enter both a title and a message before enabling the announcement" }, 400);
+    }
+    const update: Record<string, boolean | string> = {
+      updated_at: new Date().toISOString(),
+      updated_by: authData.user.id,
+    };
+    if (target === "app" || target === "both") {
+      update.announcement_enabled = payload.enabled;
+      update.announcement_title = title;
+      update.announcement_message = message;
+    }
+    if (target === "website" || target === "both") {
+      update.website_announcement_enabled = payload.enabled;
+      update.website_announcement_title = title;
+      update.website_announcement_message = message;
+    }
+    const { data, error } = await supabase
+      .from("app_settings")
+      .update(update)
+      .eq("id", 1)
+      .select("announcement_enabled, announcement_title, announcement_message, website_announcement_enabled, website_announcement_title, website_announcement_message, updated_at")
+      .single();
+    if (error) {
+      console.error("Could not update announcement", error.message);
+      return respond({ error: "Announcement could not be saved" }, 502);
+    }
+    return respond({ settings: data });
+  }
+
+  if (payload.action === "update-site-maintenance") {
+    if (typeof payload.enabled !== "boolean" || typeof payload.message !== "string") {
+      return respond({ error: "Invalid website maintenance settings" }, 400);
+    }
+    const message = payload.message.trim();
+    if (message.length < 1 || message.length > 500) {
+      return respond({ error: "The website maintenance message must be 1–500 characters" }, 400);
     }
     const { data, error } = await supabase
       .from("app_settings")
       .update({
-        announcement_enabled: payload.enabled,
-        announcement_title: title,
-        announcement_message: message,
+        website_maintenance_enabled: payload.enabled,
+        website_maintenance_message: message,
         updated_at: new Date().toISOString(),
         updated_by: authData.user.id,
       })
       .eq("id", 1)
-      .select("announcement_enabled, announcement_title, announcement_message, updated_at")
+      .select("website_maintenance_enabled, website_maintenance_message, updated_at")
       .single();
     if (error) {
-      console.error("Could not update app announcement", error.message);
-      return respond({ error: "App announcement could not be saved" }, 502);
+      console.error("Could not update website maintenance settings", error.message);
+      return respond({ error: "Website maintenance settings could not be saved" }, 502);
     }
     return respond({ settings: data });
   }
