@@ -157,14 +157,6 @@
     .footer a { text-decoration: none; }
     .footer-links { display: flex; gap: 22px; }
     .legal-note { padding: 20px 32px; background: #09251f; color: rgba(255,255,255,.56); font-size: 10px; line-height: 1.7; text-align: center; }
-    .legal-details { display: grid; gap: 34px; width: min(900px, calc(100% - 48px)); margin: auto; padding: 54px 0; color: var(--ink); }
-    .legal-details section { scroll-margin-top: 24px; }
-    .legal-details h2 { margin: 0 0 16px; font-size: clamp(30px, 4vw, 42px); }
-    .legal-details h3 { margin: 20px 0 8px; font-family: var(--serif); font-size: 21px; font-weight: 500; }
-    .legal-details p, .legal-details address, .legal-details li { color: var(--muted); font-size: 13px; line-height: 1.75; }
-    .legal-details address { font-style: normal; }
-    .legal-details p { margin: 8px 0; }
-    .legal-details ul { display: grid; gap: 6px; padding-left: 21px; }
     .site-announcement { position: fixed; inset: 12px 12px auto; z-index: 9; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; max-width: 850px; margin: auto; padding: 16px 18px; border: 1px solid rgba(255,255,255,.2); background: var(--forest); color: white; box-shadow: 0 8px 30px rgba(0,0,0,.22); }
     .site-announcement strong { color: var(--lime); }
     .site-announcement p { margin: 3px 0 0; color: rgba(255,255,255,.86); font-size: 13px; line-height: 1.5; white-space: pre-line; }
@@ -358,92 +350,15 @@
 
   <footer>
     <div class="footer">
-      <div class="footer-inner"><a class="brand" href="#start"><img src="assets/wertweit-logo.png" alt=""><span>Wertweit<small>Währungsrechner für unterwegs</small></span></a><div>© <span id="year"></span> Wertweit</div><nav class="footer-links" aria-label="Rechtliches"><a href="#impressum">Impressum</a><a href="#datenschutz">Datenschutz</a><a href="https://www.frankfurter.dev/" target="_blank" rel="noreferrer">Kursquelle</a></nav></div>
+      <div class="footer-inner"><a class="brand" href="./"><img src="assets/wertweit-logo.png" alt=""><span>Wertweit<small>Währungsrechner für unterwegs</small></span></a><div>© <span id="year"></span> Wertweit</div><nav class="footer-links" aria-label="Rechtliches"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a><a href="https://www.frankfurter.dev/" target="_blank" rel="noreferrer">Kursquelle</a></nav></div>
     </div>
-    <div class="legal-details">
-      <section id="impressum" aria-labelledby="impressum-title">
-        <h2 id="impressum-title">Impressum</h2>
-        <h3>Betreiber</h3>
-        <address>Jamie Lübcke<br>Bojum 1<br>24402 Esgrus<br>Deutschland</address>
-        <h3>Kontakt</h3>
-        <p>E-Mail: <a href="mailto:wertweitoffiziell@gmail.com">wertweitoffiziell@gmail.com</a><br>Telefon: <a href="tel:+491747685433">0174 7685433</a></p>
-        <p>Privat betriebene App und Website. Es besteht kein Registereintrag und es liegt keine Umsatzsteuer-ID vor.</p>
-        <p>Wertweit stellt unverbindliche Reise-Richtwerte und Referenzkurse bereit. Wertweit ist kein offizielles Produkt der Europäischen Zentralbank und bietet keine Finanzberatung.</p>
-      </section>
-      <section id="datenschutz" aria-labelledby="datenschutz-title">
-        <h2 id="datenschutz-title">Datenschutzerklärung</h2>
-        <p><strong>Stand: 24. Oktober 2026.</strong> Diese Hinweise beschreiben die derzeit implementierte Website und iPhone-App. Sie ersetzen keine rechtliche Prüfung. Angaben zu Hosting, Auftragsverarbeitung und tatsächlichen Abläufen müssen vor öffentlicher Nutzung geprüft und bei Änderungen aktualisiert werden.</p>
-        <h3>Verantwortlicher</h3>
-        <address>Jamie Lübcke<br>Bojum 1, 24402 Esgrus<br><a href="mailto:wertweitoffiziell@gmail.com">wertweitoffiziell@gmail.com</a></address>
-        <h3>Besuch der Website</h3>
-        <p>Die Website wird über GitHub Pages bereitgestellt. Beim Aufruf verarbeitet der Hosting- und Netzwerkanbieter technisch erforderliche Verbindungsdaten, insbesondere IP-Adresse, Zeitpunkt, angefragte Datei sowie Browser- und Geräteinformationen, um die Website auszuliefern und den Betrieb abzusichern. Die Website verwendet nach aktuellem Stand keine Werbe- oder Reichweitenanalyse und setzt keine eigenen Analyse-Cookies.</p>
-        <p>Für die Darstellung von Schriftarten lädt die Website Schriftdateien von Google Fonts (fonts.googleapis.com und fonts.gstatic.com). Dabei wird eine Verbindung zu Google hergestellt; technische Verbindungsdaten wie die IP-Adresse können an Google übermittelt werden. Die Reisefotos werden von dieser Website selbst ausgeliefert; die Bildquellen sind Unsplash.</p>
-        <p>Für die von dir angeforderte Anzeige von Website-Wartung und Hinweisen fragt die Website öffentliche Status- und Textfelder bei Supabase ab. Dabei erhält Supabase die technische Anfrage einschließlich IP-Adresse und Zeitpunkt. Die Anfrage enthält keine eingegebenen Beträge und benötigt kein Wertweit-Konto.</p>
-        <h3>Daten auf dem Gerät und Kursdienst in der App</h3>
-        <p>Der eingegebene Betrag wird zur Umrechnung vorübergehend im Arbeitsspeicher verarbeitet. Zielwährung, Reiseziel, Favoriten, Kursalarme und zuletzt geladene Wechselkurse speichert die App lokal auf dem Gerät; sie werden nicht mit einem Konto synchronisiert. Kursanfragen für Währungsliste, aktuelle Kurse und historische Verläufe gehen an api.frankfurter.dev. Übertragen werden die angefragte Währung und bei historischen Kursen der Zeitraum, nicht der eingegebene Betrag oder der Text einer lokalen Umrechnungsfrage. Der Kursdienst und seine Netzwerkdienstleister können technische Verbindungsdaten wie IP-Adresse, Zeitpunkt und Ressource verarbeiten. Informationen: <a href="https://www.frankfurter.dev/" target="_blank" rel="noreferrer">frankfurter.dev</a>.</p>
-        <h3>Wertweit-Konto, Support und E-Mail</h3>
-        <p>Für die App ist ein Konto mit E-Mail-Adresse und Passwort erforderlich. Supabase Auth verarbeitet die Anmeldedaten und speichert Konto-ID, E-Mail-Adresse, Registrierungs- und letzte Anmeldezeit. Passwörter werden nicht in der Wertweit-App-Datenbank gespeichert. Administratoren können E-Mail-Adresse und Anmeldezeit im geschützten Adminbereich einsehen.</p>
-        <p>Produktneuigkeiten per E-Mail sind freiwillig und zunächst ausgeschaltet. Bei Einschaltung speichert Supabase Konto-ID, Einwilligungsstatus und Zeitpunkt. Die Einwilligung kann in der App jederzeit für die Zukunft widerrufen werden. Für den Versand werden E-Mail-Adresse, Betreff und Nachricht über Google Apps Script und Gmail verarbeitet.</p>
-        <p>Bei einer Support-Anfrage werden Tickettext und E-Mail-Adresse an den Wertweit-Support unter wertweitoffiziell@gmail.com weitergeleitet. Antworten werden im App-Ticket gespeichert und zusätzlich per E-Mail verschickt.</p>
-        <h3>Nutzungsstatistik und Wartungsstatus</h3>
-        <p>Bei einem App-Start und erneutem Öffnen nach längerer Inaktivität sendet die App eine Sitzungsmarkierung mit Konto-ID an Supabase. Derselbe Account wird höchstens einmal innerhalb von 30 Minuten gezählt. Die Statistik dient dem Betrieb und der Verbesserung; im Adminbereich werden zusammengefasste Sitzungs- und Nutzerzahlen angezeigt. Sitzungsmarkierungen umfassen höchstens 365 Tage; ältere Markierungen werden bei einem späteren erfassten App-Start entfernt. Die App fragt außerdem den Wartungsstatus von Supabase ab. Ohne Internetverbindung bleibt der zuletzt bekannte Zustand wirksam.</p>
-        <h3>Abonnement und Zahlung</h3>
-        <p>Bei einem Wertweit-Pro-Abo verarbeitet Apple Zahlung und Abrechnungsdaten über den Apple Account. Die App erhält von StoreKit den verifizierten Abo-Status, um Pro-Funktionen freizuschalten. Wertweit erhält keine Kartennummer. Apple verwaltet Kaufbelege für echte iPhone-Käufe; Wertweit erstellt dafür derzeit keine zweite Rechnung. Das Wertweit-Konto ist davon getrennt.</p>
-        <h3>Zweck, Rechtsgrundlage und Speicherdauer</h3>
-        <p>Konto- und Anmeldedaten dienen der Bereitstellung und Absicherung des App-Zugangs. Kursanfragen dienen der angeforderten Umrechnung. Produktneuigkeiten werden nur aufgrund freiwilliger Einwilligung versandt; diese kann jederzeit mit Wirkung für die Zukunft widerrufen werden. Lokale App-Daten werden auf dem Gerät gespeichert. Das Konto kann in der App gelöscht werden; ein App-Store-Abo muss separat über Apple gekündigt werden. Die konkrete Rechtsgrundlage, Löschfristen und Speicherorte der eingesetzten Hosting- und Versanddienste sind vom Betreiber anhand der tatsächlichen Konfiguration zu prüfen.</p>
-        <h3>Deine Rechte und Kontakt</h3>
-        <p>Du kannst im Rahmen der gesetzlichen Voraussetzungen Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit verlangen sowie einer Verarbeitung widersprechen. Eine Einwilligung kannst du mit Wirkung für die Zukunft widerrufen. Außerdem kannst du dich bei einer Datenschutzaufsichtsbehörde beschweren, insbesondere beim <a href="https://www.datenschutzzentrum.de/" target="_blank" rel="noreferrer">Unabhängigen Landeszentrum für Datenschutz Schleswig-Holstein</a>. Für Datenschutzanfragen: <a href="mailto:wertweitoffiziell@gmail.com">wertweitoffiziell@gmail.com</a>.</p>
-        <h3>Berechtigungen und Änderungen</h3>
-        <p>Die App fordert für Kursalarme die iOS-Mitteilungsberechtigung an. Diese Alarme werden lokal auf dem Gerät ausgelöst; es gibt keine Hintergrundüberwachung. Die App fordert keinen Zugriff auf Kontakte, Standort, Kamera oder Fotos an. Diese Hinweise müssen bei Änderungen an Funktionen, Dienstleistern oder Datenverarbeitung aktualisiert werden.</p>
-      </section>
-    </div>
-    <div class="legal-note">Fotos: Unsplash, gemäß <a href="https://unsplash.com/license" target="_blank" rel="noreferrer">Unsplash-Lizenz</a>. Anbieterangaben und Datenschutzinformationen vor Nutzung rechtlich und sachlich prüfen.</div>
+    <div class="legal-note">Fotos: Unsplash, gemäß <a href="https://unsplash.com/license" target="_blank" rel="noreferrer">Unsplash-Lizenz</a>.</div>
   </footer>
 
   <script src="supabase-config.js"></script>
+  <script src="site-status.js"></script>
   <script>
     document.querySelector("#year").textContent = new Date().getFullYear();
-
-    async function refreshWebsiteSettings() {
-      const config = window.WERTWEIT_SUPABASE;
-      if (!config?.url || !config?.publishableKey) {
-        console.error("Website status is unavailable because the public Supabase configuration is missing.");
-        return;
-      }
-      try {
-        const endpoint = new URL("/rest/v1/app_settings", config.url);
-        endpoint.search = new URLSearchParams({
-          select: "website_maintenance_enabled,website_maintenance_message,website_announcement_enabled,website_announcement_title,website_announcement_message",
-          id: "eq.1",
-          limit: "1",
-        }).toString();
-        const response = await fetch(endpoint, {
-          headers: { apikey: config.publishableKey },
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error(`Supabase returned HTTP ${response.status}`);
-        const rows = await response.json();
-        if (!Array.isArray(rows) || !rows[0]) throw new Error("Website status settings were not found.");
-
-        const settings = rows[0];
-        const maintenance = settings.website_maintenance_enabled === true;
-        document.querySelector("#site-maintenance-message").textContent = settings.website_maintenance_message;
-        document.querySelector("#site-maintenance").hidden = !maintenance;
-        document.querySelector(".site-header").hidden = maintenance;
-        document.querySelector("#start").hidden = maintenance;
-        document.querySelector("footer").hidden = maintenance;
-
-        const announcement = settings.website_announcement_enabled === true &&
-          settings.website_announcement_title && settings.website_announcement_message;
-        document.querySelector("#site-announcement-title").textContent = announcement ? settings.website_announcement_title : "";
-        document.querySelector("#site-announcement-message").textContent = announcement ? settings.website_announcement_message : "";
-        document.querySelector("#site-announcement").hidden = !announcement || maintenance;
-      } catch (error) {
-        console.error("Could not refresh public website settings.", error);
-      }
-    }
-    refreshWebsiteSettings();
-    window.setInterval(refreshWebsiteSettings, 60_000);
 
     const revealObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {

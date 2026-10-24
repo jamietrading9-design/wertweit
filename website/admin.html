@@ -106,17 +106,26 @@
     .invoice-customer-form summary { cursor: pointer; font-size: 13px; font-weight: 700; }
     .invoice-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
     .invoice-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; font-size: 12px; }
-    .admin-nav { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 20px; padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
+    .admin-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 22px; }
+    .admin-nav-group { display: grid; align-content: start; gap: 5px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.8); }
+    .admin-nav-label { padding: 0 8px 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
     .card { border-radius: 18px; box-shadow: 0 12px 34px rgba(11, 43, 36, .045); }
     input, textarea, select { border-radius: 10px; transition: border-color .18s ease, box-shadow .18s ease; }
     input:focus, textarea:focus, select:focus { border-color: var(--leaf); outline: none; box-shadow: 0 0 0 3px rgba(28, 106, 79, .12); }
     button { border-radius: 10px; transition: background .18s ease, transform .18s ease, box-shadow .18s ease; }
     button:not(:disabled):hover { box-shadow: 0 5px 14px rgba(11, 43, 36, .12); transform: translateY(-1px); }
     button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid rgba(28, 106, 79, .45); outline-offset: 3px; }
-    .admin-nav { position: sticky; top: 8px; z-index: 5; flex-wrap: nowrap; padding: 9px; border: 1px solid var(--line); border-radius: 14px; background: rgba(244, 245, 239, .94); box-shadow: 0 8px 24px rgba(11, 43, 36, .07); backdrop-filter: blur(12px); }
-    .admin-nav button { flex: none; min-height: 38px; border: 1px solid transparent; background: transparent; color: var(--muted); }
+    .admin-nav { position: sticky; top: 8px; z-index: 5; padding: 8px 0; background: rgba(244, 245, 239, .94); backdrop-filter: blur(12px); }
+    .admin-nav button { width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11px; text-align: left; }
     .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; box-shadow: 0 4px 12px rgba(28, 106, 79, .2); }
     .admin-nav button:not([aria-current="page"]):hover { border-color: var(--line); background: white; color: var(--forest); }
+    .announcement-target-status { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .announcement-target-status span { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #f6f8f4; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .announcement-target-status span.active { border-color: #c6d99f; background: #edf3d1; color: #475c16; }
+    .announcement-compose { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: 16px; align-items: start; margin-top: 16px; }
+    .announcement-compose-fields { display: grid; gap: 12px; }
+    .announcement-compose-fields textarea { min-height: 110px; }
+    .announcement-compose-fields button { justify-self: start; }
     .email-template-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 14px 0; }
     .email-template-actions label { flex: 1 1 240px; }
     .activity-list { display: grid; gap: 9px; margin-top: 16px; }
@@ -138,7 +147,10 @@
       .toolbar { align-items: flex-start; flex-direction: column; }
       .card-heading { align-items: flex-start; flex-direction: column; }
       .invoice-fields .wide { grid-column: auto; }
+      .admin-nav { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .announcement-compose { grid-template-columns: 1fr; }
     }
+    @media (min-width: 601px) and (max-width: 900px) { .admin-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   </style>
 </head>
 <body>
@@ -164,16 +176,11 @@
         <button id="logout-button" class="secondary" type="button">Abmelden</button>
       </div>
       <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
-        <button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button>
-        <button type="button" data-admin-tab="people">Personen</button>
-        <button type="button" data-admin-tab="database">Datenbank</button>
-        <button type="button" data-admin-tab="email">E-Mail</button>
-        <button type="button" data-admin-tab="support">Support</button>
-        <button type="button" data-admin-tab="settings">Einstellungen</button>
-        <button type="button" data-admin-tab="invoices">App-Rechnungen</button>
-        <button type="button" data-admin-tab="customers">Kunden</button>
-        <button type="button" data-admin-tab="private">Privatverkäufe</button>
-        <button type="button" data-admin-tab="activity">Aktivitätsverlauf</button>
+        <div class="admin-nav-group"><span class="admin-nav-label">Übersicht</span><button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button><button type="button" data-admin-tab="activity">Aktivitätsverlauf</button></div>
+        <div class="admin-nav-group"><span class="admin-nav-label">Konten</span><button type="button" data-admin-tab="people">Personen</button><button type="button" data-admin-tab="database">Datenbank &amp; Zugriff</button><button type="button" data-admin-tab="customers">Rechnungskunden</button></div>
+        <div class="admin-nav-group"><span class="admin-nav-label">Kommunikation</span><button type="button" data-admin-tab="email">E-Mail &amp; Rundmails</button><button type="button" data-admin-tab="support">Support-Postfach</button></div>
+        <div class="admin-nav-group"><span class="admin-nav-label">Abrechnung</span><button type="button" data-admin-tab="invoices">App-Rechnungen</button><button type="button" data-admin-tab="private">Private Verkäufe</button></div>
+        <div class="admin-nav-group"><span class="admin-nav-label">Betrieb</span><button type="button" data-admin-tab="settings">App &amp; Website</button></div>
       </nav>
       <section class="card" data-admin-page="dashboard" aria-labelledby="metrics-title">
         <div class="card-heading"><h2 id="metrics-title">App-Kennzahlen</h2><button id="refresh-metrics" class="secondary" type="button">Aktualisieren</button></div>
@@ -209,18 +216,28 @@
       <section class="card" data-admin-page="settings" aria-labelledby="announcement-heading">
         <div class="card-heading"><h2 id="announcement-heading">Broadcast-Hinweis</h2></div>
         <p class="notice">Zeigt einen Hinweis in der iPhone-App, auf der Website oder an beiden Orten. Dies ist kein E-Mail-Versand und keine Push-Mitteilung.</p>
-        <label>Ziel
+        <div class="announcement-compose">
+          <div>
+          <label for="announcement-target">Wo soll der Hinweis erscheinen?
           <select id="announcement-target">
-            <option value="app">Nur App</option>
+            <option value="" selected disabled>Bitte Ziel auswählen</option>
+            <option value="app">Nur iPhone-App</option>
             <option value="website">Nur Website</option>
             <option value="both">App und Website</option>
           </select>
-        </label>
-        <label class="setting"><input id="announcement-enabled" type="checkbox"> Hinweis anzeigen</label>
-        <div class="fields">
-          <label>Überschrift<input id="announcement-title" maxlength="80"></label>
-          <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
-          <button id="save-announcement" type="button">Broadcast speichern</button>
+          </label>
+          <div class="announcement-target-status" aria-live="polite">
+            <span id="announcement-app-state">App: wird geprüft</span>
+            <span id="announcement-website-state">Website: wird geprüft</span>
+          </div>
+          <label class="setting"><input id="announcement-enabled" type="checkbox"> Hinweis für das ausgewählte Ziel anzeigen</label>
+          <p id="announcement-target-help" class="notice">Wähle zuerst ausdrücklich das Ziel. Ein Website-Hinweis erscheint als Banner auf der öffentlichen Website.</p>
+          </div>
+          <div class="announcement-compose-fields">
+            <label>Überschrift<input id="announcement-title" maxlength="80"></label>
+            <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
+            <button id="save-announcement" type="button">Broadcast speichern</button>
+          </div>
         </div>
         <p id="announcement-status" class="status" role="status"></p>
       </section>
@@ -785,6 +802,12 @@
         const siteTarget = target === "website" || target === "both";
         const appEnabled = currentAdminSettings?.announcement_enabled === true;
         const siteEnabled = currentAdminSettings?.website_announcement_enabled === true;
+        const appState = document.querySelector("#announcement-app-state");
+        const websiteState = document.querySelector("#announcement-website-state");
+        appState.textContent = `App: ${appEnabled ? "Hinweis aktiv" : "kein Hinweis"}`;
+        websiteState.textContent = `Website: ${siteEnabled ? "Hinweis aktiv" : "kein Hinweis"}`;
+        appState.classList.toggle("active", appEnabled);
+        websiteState.classList.toggle("active", siteEnabled);
         document.querySelector("#announcement-enabled").checked =
           target === "both" ? appEnabled && siteEnabled : siteTarget ? siteEnabled : appEnabled;
         document.querySelector("#announcement-title").value = siteTarget && !appTarget
@@ -793,6 +816,14 @@
         document.querySelector("#announcement-message").value = siteTarget && !appTarget
           ? currentAdminSettings?.website_announcement_message ?? ""
           : currentAdminSettings?.announcement_message ?? "";
+        const help = document.querySelector("#announcement-target-help");
+        help.textContent = target === "website"
+          ? "Der Hinweis erscheint als Banner auf der öffentlichen Website. Er wird nicht per E-Mail oder Push versendet."
+          : target === "both"
+          ? "Der Text wird in der iPhone-App und als Banner auf der öffentlichen Website angezeigt."
+          : target === "app"
+          ? "Der Hinweis erscheint in der iPhone-App. Wähle „Nur Website“, wenn er auf der öffentlichen Seite erscheinen soll."
+          : "Wähle zuerst ausdrücklich das Ziel. Ein Website-Hinweis erscheint als Banner auf der öffentlichen Website.";
       }
 
       async function loadInvoiceWorkspace() {
@@ -2300,20 +2331,31 @@
 
       document.querySelector("#save-announcement").addEventListener("click", async (event) => {
         const button = event.currentTarget;
+        const target = document.querySelector("#announcement-target").value;
+        if (!target) {
+          setStatus(announcementStatus, "Bitte wähle zuerst „Nur Website“, „Nur iPhone-App“ oder „App und Website“ aus.", "error");
+          document.querySelector("#announcement-target").focus();
+          return;
+        }
         setBusy(button, true);
         setStatus(announcementStatus, "Broadcast wird gespeichert …");
         try {
           const { settings } = await callAdmin("update-app-announcement", {
-            target: document.querySelector("#announcement-target").value,
+            target,
             enabled: document.querySelector("#announcement-enabled").checked,
             title: document.querySelector("#announcement-title").value,
             message: document.querySelector("#announcement-message").value,
           });
           Object.assign(currentAdminSettings, settings);
+          loadAnnouncementTarget(target);
           setStatus(
             announcementStatus,
             document.querySelector("#announcement-enabled").checked
-              ? "Broadcast gespeichert. App und Website zeigen ihn nach der nächsten Statusaktualisierung."
+              ? target === "website"
+                ? "Website-Broadcast ist gespeichert und wird auf der öffentlichen Website spätestens nach einer Minute angezeigt."
+                : target === "both"
+                ? "Broadcast ist für App und Website gespeichert."
+                : "App-Broadcast ist gespeichert."
               : "Broadcast für das ausgewählte Ziel ausgeschaltet.",
             "success",
           );

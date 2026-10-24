@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123c31">
+  <meta name="description" content="Impressum und Kontaktinformationen für Wertweit.">
+  <link rel="canonical" href="https://jamietrading9-design.github.io/wertweit/impressum.html">
+  <title>Impressum – Wertweit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --forest: #123c31; --forest-deep: #0b2b24; --leaf: #1c6a4f; --lime: #d8f06b; --paper: #f4f5ef; --ink: #14241f; --muted: #69746d; --serif: "Fraunces", Georgia, serif; --sans: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    .site-header { display: flex; min-height: 78px; align-items: center; justify-content: space-between; gap: 20px; padding: 14px max(24px, calc((100% - 1120px) / 2)); background: var(--forest-deep); color: white; }
+    .brand { display: inline-flex; align-items: center; gap: 12px; font-weight: 700; text-decoration: none; }
+    .brand img { width: 42px; height: 42px; border-radius: 12px; }
+    .brand small { display: block; color: var(--lime); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+    .back-link { color: white; font-size: 13px; font-weight: 600; text-decoration: none; }
+    .legal-content { width: min(800px, calc(100% - 40px)); min-height: calc(100vh - 190px); margin: auto; padding: 64px 0 80px; }
+    .eyebrow { margin: 0 0 12px; color: var(--leaf); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0 0 32px; font-family: var(--serif); font-size: clamp(48px, 8vw, 76px); font-weight: 500; line-height: 1; }
+    h2 { margin: 34px 0 10px; font-family: var(--serif); font-size: 25px; font-weight: 500; }
+    p, address { color: var(--muted); font-size: 15px; line-height: 1.8; }
+    address { font-style: normal; }
+    p { margin: 10px 0; }
+    .footer { padding: 22px 24px; background: var(--forest); color: rgba(255,255,255,.8); }
+    .footer-inner { display: flex; width: min(1120px, 100%); flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin: auto; font-size: 12px; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer a { text-decoration: none; }
+    .site-announcement { position: fixed; inset: 12px 12px auto; z-index: 9; display: grid; grid-template-columns: auto 1fr; gap: 12px; max-width: 850px; margin: auto; padding: 16px 18px; background: var(--forest); color: white; box-shadow: 0 8px 30px rgba(0,0,0,.22); }
+    .site-announcement strong { color: var(--lime); }
+    .site-announcement p { margin: 3px 0 0; color: rgba(255,255,255,.86); font-size: 13px; white-space: pre-line; }
+    .site-announcement[hidden], .site-maintenance[hidden], .site-header[hidden], main[hidden], footer[hidden] { display: none; }
+    .site-maintenance { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 30px; background: var(--forest-deep); color: white; text-align: center; }
+    .site-maintenance > div { max-width: 620px; }
+    .site-maintenance h1 { font-size: clamp(42px, 8vw, 76px); }
+    .site-maintenance p { color: rgba(255,255,255,.78); white-space: pre-line; }
+    .site-maintenance a { color: var(--lime); }
+    @media (max-width: 560px) { .site-header { padding: 14px 20px; } .brand { font-size: 14px; } .brand img { width: 36px; height: 36px; } .footer-inner { align-items: flex-start; flex-direction: column; } .footer-links { flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <section id="site-maintenance" class="site-maintenance" aria-labelledby="site-maintenance-title" hidden>
+    <div><p class="eyebrow">Wertweit</p><h1 id="site-maintenance-title">Wir sind bald zurück.</h1><p id="site-maintenance-message"></p><p><a href="mailto:wertweitoffiziell@gmail.com">Kontakt per E-Mail</a></p></div>
+  </section>
+  <section id="site-announcement" class="site-announcement" aria-live="polite" hidden>
+    <strong id="site-announcement-title"></strong><p id="site-announcement-message"></p>
+  </section>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Wertweit Startseite"><img src="assets/wertweit-logo.png" alt=""><span>Wertweit<small>Währungsrechner für unterwegs</small></span></a>
+    <a class="back-link" href="./">Zurück zur Website</a>
+  </header>
+  <main id="legal-content" class="legal-content">
+    <p class="eyebrow">Rechtliches</p>
+    <h1>Impressum</h1>
+    <h2>Betreiber</h2>
+    <address>Jamie Lübcke<br>Bojum 1<br>24402 Esgrus<br>Deutschland</address>
+    <h2>Kontakt</h2>
+    <p>E-Mail: <a href="mailto:wertweitoffiziell@gmail.com">wertweitoffiziell@gmail.com</a><br>Telefon: <a href="tel:+491747685433">0174 7685433</a></p>
+    <p>Privat betriebene App und Website. Es besteht kein Registereintrag und es liegt keine Umsatzsteuer-ID vor.</p>
+    <h2>Hinweis zum Angebot</h2>
+    <p>Wertweit stellt unverbindliche Reise-Richtwerte und Referenzkurse bereit. Wertweit ist kein offizielles Produkt der Europäischen Zentralbank und bietet keine Finanzberatung.</p>
+  </main>
+  <footer class="footer">
+    <div class="footer-inner"><span>© <span id="year"></span> Wertweit</span><nav class="footer-links" aria-label="Rechtliches"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></nav></div>
+  </footer>
+  <script src="supabase-config.js"></script>
+  <script src="site-status.js"></script>
+  <script>document.querySelector("#year").textContent = new Date().getFullYear();</script>
+</body>
+</html>
