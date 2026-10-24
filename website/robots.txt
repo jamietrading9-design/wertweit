@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /set-password.html
+Disallow: /supabase-config.js
+
+Sitemap: https://jamietrading9-design.github.io/wertweit/sitemap.xml
