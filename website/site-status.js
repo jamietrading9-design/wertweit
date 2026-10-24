@@ -8,7 +8,7 @@ async function refreshWebsiteSettings() {
   try {
     const endpoint = new URL("/rest/v1/app_settings", config.url);
     endpoint.search = new URLSearchParams({
-      select: "website_maintenance_enabled,website_maintenance_message,website_announcement_enabled,website_announcement_title,website_announcement_message",
+      select: "website_maintenance_enabled,website_maintenance_message,website_announcement_enabled,website_announcement_title,website_announcement_message,website_announcement_starts_at,website_announcement_ends_at",
       id: "eq.1",
       limit: "1",
     }).toString();
@@ -33,8 +33,18 @@ async function refreshWebsiteSettings() {
       element.hidden = maintenance;
     });
 
+    const now = Date.now();
+    const startsAt = settings.website_announcement_starts_at
+      ? new Date(settings.website_announcement_starts_at).getTime()
+      : null;
+    const endsAt = settings.website_announcement_ends_at
+      ? new Date(settings.website_announcement_ends_at).getTime()
+      : null;
     const announcement = settings.website_announcement_enabled === true &&
-      settings.website_announcement_title && settings.website_announcement_message;
+      (startsAt === null || startsAt <= now) &&
+      (endsAt === null || endsAt > now) &&
+      settings.website_announcement_title &&
+      settings.website_announcement_message;
     const announcementTitle = document.querySelector("#site-announcement-title");
     const announcementMessage = document.querySelector("#site-announcement-message");
     const announcementBanner = document.querySelector("#site-announcement");

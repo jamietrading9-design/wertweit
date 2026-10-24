@@ -33,6 +33,16 @@ function invoiceDate(value: unknown): string | null {
   return Number.isNaN(date.valueOf()) || date.toISOString().slice(0, 10) !== value ? null : value;
 }
 
+function announcementDate(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
+    return undefined;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) || date.toISOString() !== value ? undefined : value;
+}
+
 function invoiceAmountCents(value: unknown): number | null {
   if (typeof value !== "string") return null;
   const match = value.trim().match(/^(\d{1,9})(?:\.(\d{1,2}))?$/);
@@ -1705,7 +1715,7 @@ Deno.serve(async (request) => {
   if (payload.action === "get-settings") {
     const { data, error } = await supabase
       .from("app_settings")
-      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message, website_maintenance_enabled, website_maintenance_message, website_announcement_enabled, website_announcement_title, website_announcement_message, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
+      .select("maintenance_enabled, maintenance_message, announcement_enabled, announcement_title, announcement_message, announcement_starts_at, announcement_ends_at, website_maintenance_enabled, website_maintenance_message, website_announcement_enabled, website_announcement_title, website_announcement_message, website_announcement_starts_at, website_announcement_ends_at, pro_offer_title, pro_offer_message, pro_monthly_offer_message, pro_yearly_offer_message, updated_at")
       .eq("id", 1)
       .single();
 
@@ -1728,10 +1738,19 @@ Deno.serve(async (request) => {
     }
     const title = payload.title.trim();
     const message = payload.message.trim();
+    const startsAt = announcementDate(payload.startsAt);
+    const endsAt = announcementDate(payload.endsAt);
+    if ((payload.startsAt !== undefined && startsAt === undefined) ||
+        (payload.endsAt !== undefined && endsAt === undefined)) {
+      return respond({ error: "Announcement dates must be valid local date and time values" }, 400);
+    }
     if (payload.enabled && (!title || !message)) {
       return respond({ error: "Enter both a title and a message before enabling the announcement" }, 400);
     }
-    const update: Record<string, boolean | string> = {
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+      return respond({ error: "The announcement end time must be later than its start time" }, 400);
+    }
+    const update: Record<string, boolean | string | null> = {
       updated_at: new Date().toISOString(),
       updated_by: authData.user.id,
     };
@@ -1739,17 +1758,21 @@ Deno.serve(async (request) => {
       update.announcement_enabled = payload.enabled;
       update.announcement_title = title;
       update.announcement_message = message;
+      if (payload.startsAt !== undefined) update.announcement_starts_at = startsAt ?? null;
+      if (payload.endsAt !== undefined) update.announcement_ends_at = endsAt ?? null;
     }
     if (target === "website" || target === "both") {
       update.website_announcement_enabled = payload.enabled;
       update.website_announcement_title = title;
       update.website_announcement_message = message;
+      if (payload.startsAt !== undefined) update.website_announcement_starts_at = startsAt ?? null;
+      if (payload.endsAt !== undefined) update.website_announcement_ends_at = endsAt ?? null;
     }
     const { data, error } = await supabase
       .from("app_settings")
       .update(update)
       .eq("id", 1)
-      .select("announcement_enabled, announcement_title, announcement_message, website_announcement_enabled, website_announcement_title, website_announcement_message, updated_at")
+      .select("announcement_enabled, announcement_title, announcement_message, announcement_starts_at, announcement_ends_at, website_announcement_enabled, website_announcement_title, website_announcement_message, website_announcement_starts_at, website_announcement_ends_at, updated_at")
       .single();
     if (error) {
       console.error("Could not update announcement", error.message);

@@ -96,6 +96,10 @@ final class SupabaseSessionStore: ObservableObject {
     private let projectURL: URL?
     private let publishableKey: String
     private var hasStarted = false
+    private var announcementSettingEnabled = false
+    private var announcementStartsAt: String?
+    private var announcementEndsAt: String?
+    private var announcementScheduleTask: Task<Void, Never>?
 
     init() {
         let urlString = Bundle.main.object(forInfoDictionaryKey: "SupabaseURL") as? String ?? ""
@@ -516,7 +520,7 @@ final class SupabaseSessionStore: ObservableObject {
         components?.queryItems = [
             URLQueryItem(
                 name: "select",
-                value: "maintenance_enabled,maintenance_message,announcement_enabled,announcement_title,announcement_message,pro_offer_title,pro_offer_message,pro_monthly_offer_message,pro_yearly_offer_message"
+                value: "maintenance_enabled,maintenance_message,announcement_enabled,announcement_title,announcement_message,announcement_starts_at,announcement_ends_at,pro_offer_title,pro_offer_message,pro_monthly_offer_message,pro_yearly_offer_message"
             ),
             URLQueryItem(name: "id", value: "eq.1")
         ]
@@ -526,6 +530,7 @@ final class SupabaseSessionStore: ObservableObject {
         }
 
         var request = URLRequest(url: url)
+        request.timeoutInterval = 15
         request.setValue(publishableKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(publishableKey)", forHTTPHeaderField: "Authorization")
 
@@ -542,7 +547,11 @@ final class SupabaseSessionStore: ObservableObject {
             }
             maintenanceEnabled = settings.maintenanceEnabled
             maintenanceMessage = settings.maintenanceMessage
-            announcementEnabled = settings.announcementEnabled ?? false
+            configureAnnouncementSchedule(
+                enabled: settings.announcementEnabled ?? false,
+                startsAt: settings.announcementStartsAt,
+                endsAt: settings.announcementEndsAt
+            )
             announcementTitle = settings.announcementTitle ?? ""
             announcementMessage = settings.announcementMessage ?? ""
             proOfferTitle = settings.proOfferTitle ?? proOfferTitle
@@ -552,6 +561,57 @@ final class SupabaseSessionStore: ObservableObject {
         } catch {
             statusMessage = "Der Wartungsstatus konnte nicht aktualisiert werden. Ohne Verbindung bleibt die App verfügbar."
         }
+    }
+
+    private func configureAnnouncementSchedule(enabled: Bool, startsAt: String?, endsAt: String?) {
+        announcementSettingEnabled = enabled
+        announcementStartsAt = startsAt
+        announcementEndsAt = endsAt
+        updateAnnouncementVisibility()
+
+        announcementScheduleTask?.cancel()
+        guard enabled, startsAt != nil || endsAt != nil else { return }
+        announcementScheduleTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 30_000_000_000)
+                } catch {
+                    return
+                }
+                guard let self else { return }
+                self.updateAnnouncementVisibility()
+                let now = Date()
+                let hasFutureTransition = [
+                    Self.parseAnnouncementDate(self.announcementStartsAt),
+                    Self.parseAnnouncementDate(self.announcementEndsAt)
+                ]
+                .compactMap { $0 }
+                .contains { $0 > now }
+                if !hasFutureTransition { return }
+            }
+        }
+    }
+
+    private func updateAnnouncementVisibility() {
+        let start = Self.parseAnnouncementDate(announcementStartsAt)
+        let end = Self.parseAnnouncementDate(announcementEndsAt)
+        let hasInvalidDate = (announcementStartsAt != nil && start == nil)
+            || (announcementEndsAt != nil && end == nil)
+            || (start.flatMap { start in end.map { $0 <= start } } ?? false)
+        let now = Date()
+        announcementEnabled = announcementSettingEnabled
+            && !hasInvalidDate
+            && (start.map { $0 <= now } ?? true)
+            && (end.map { $0 > now } ?? true)
+    }
+
+    private static func parseAnnouncementDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
     }
 
     private func refreshSessionIfNeeded() async throws {
@@ -594,6 +654,7 @@ final class SupabaseSessionStore: ObservableObject {
         }
 
         var request = URLRequest(url: url)
+        request.timeoutInterval = 15
         request.httpMethod = "POST"
         request.setValue(publishableKey, forHTTPHeaderField: "apikey")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -810,6 +871,8 @@ private struct AppSettings: Decodable {
     let announcementEnabled: Bool?
     let announcementTitle: String?
     let announcementMessage: String?
+    let announcementStartsAt: String?
+    let announcementEndsAt: String?
     let proOfferTitle: String?
     let proOfferMessage: String?
     let proMonthlyOfferMessage: String?
@@ -821,6 +884,8 @@ private struct AppSettings: Decodable {
         case announcementEnabled = "announcement_enabled"
         case announcementTitle = "announcement_title"
         case announcementMessage = "announcement_message"
+        case announcementStartsAt = "announcement_starts_at"
+        case announcementEndsAt = "announcement_ends_at"
         case proOfferTitle = "pro_offer_title"
         case proOfferMessage = "pro_offer_message"
         case proMonthlyOfferMessage = "pro_monthly_offer_message"

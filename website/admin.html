@@ -236,6 +236,9 @@
           <div class="announcement-compose-fields">
             <label>Überschrift<input id="announcement-title" maxlength="80"></label>
             <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
+            <label>Hinweis ab (leer = sofort)<input id="announcement-starts-at" type="datetime-local"></label>
+            <label>Hinweis beenden am (leer = kein automatisches Ende)<input id="announcement-ends-at" type="datetime-local"></label>
+            <p class="notice">Geplante Zeiten gelten in deiner lokalen Zeitzone. Nach dem Endzeitpunkt wird der Hinweis automatisch ausgeblendet; du musst ihn nicht manuell abschalten.</p>
             <button id="save-announcement" type="button">Broadcast speichern</button>
           </div>
         </div>
@@ -649,6 +652,29 @@
       return Number.isNaN(date.valueOf()) ? "Unbekannt" : new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(date);
     }
 
+    function toLocalDateTimeInput(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.valueOf())) return "";
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    }
+
+    function fromLocalDateTimeInput(value) {
+      if (!value) return null;
+      const date = new Date(value);
+      return Number.isNaN(date.valueOf()) ? undefined : date.toISOString();
+    }
+
+    function announcementState(enabled, startsAt, endsAt) {
+      if (!enabled) return { label: "kein Hinweis", active: false };
+      const now = Date.now();
+      const start = startsAt ? new Date(startsAt).getTime() : null;
+      const end = endsAt ? new Date(endsAt).getTime() : null;
+      if (start !== null && start > now) return { label: `geplant ab ${formatDate(startsAt)}`, active: false };
+      if (end !== null && end <= now) return { label: `automatisch beendet (${formatDate(endsAt)})`, active: false };
+      return { label: end === null ? "Hinweis aktiv" : `aktiv bis ${formatDate(endsAt)}`, active: true };
+    }
+
     function formatInvoiceDate(value) {
       const date = new Date(`${value}T12:00:00`);
       return Number.isNaN(date.valueOf()) ? "Unbekannt" : new Intl.DateTimeFormat("de-DE", { dateStyle: "long" }).format(date);
@@ -797,17 +823,32 @@
         }
       }
 
+      function refreshAnnouncementStateLabels() {
+        const appState = document.querySelector("#announcement-app-state");
+        const websiteState = document.querySelector("#announcement-website-state");
+        if (!appState || !websiteState) return;
+        const appSchedule = announcementState(
+          currentAdminSettings?.announcement_enabled === true,
+          currentAdminSettings?.announcement_starts_at,
+          currentAdminSettings?.announcement_ends_at,
+        );
+        const websiteSchedule = announcementState(
+          currentAdminSettings?.website_announcement_enabled === true,
+          currentAdminSettings?.website_announcement_starts_at,
+          currentAdminSettings?.website_announcement_ends_at,
+        );
+        appState.textContent = `App: ${appSchedule.label}`;
+        websiteState.textContent = `Website: ${websiteSchedule.label}`;
+        appState.classList.toggle("active", appSchedule.active);
+        websiteState.classList.toggle("active", websiteSchedule.active);
+      }
+
       function loadAnnouncementTarget(target) {
         const appTarget = target === "app" || target === "both";
         const siteTarget = target === "website" || target === "both";
         const appEnabled = currentAdminSettings?.announcement_enabled === true;
         const siteEnabled = currentAdminSettings?.website_announcement_enabled === true;
-        const appState = document.querySelector("#announcement-app-state");
-        const websiteState = document.querySelector("#announcement-website-state");
-        appState.textContent = `App: ${appEnabled ? "Hinweis aktiv" : "kein Hinweis"}`;
-        websiteState.textContent = `Website: ${siteEnabled ? "Hinweis aktiv" : "kein Hinweis"}`;
-        appState.classList.toggle("active", appEnabled);
-        websiteState.classList.toggle("active", siteEnabled);
+        refreshAnnouncementStateLabels();
         document.querySelector("#announcement-enabled").checked =
           target === "both" ? appEnabled && siteEnabled : siteTarget ? siteEnabled : appEnabled;
         document.querySelector("#announcement-title").value = siteTarget && !appTarget
@@ -816,6 +857,16 @@
         document.querySelector("#announcement-message").value = siteTarget && !appTarget
           ? currentAdminSettings?.website_announcement_message ?? ""
           : currentAdminSettings?.announcement_message ?? "";
+        document.querySelector("#announcement-starts-at").value = toLocalDateTimeInput(
+          siteTarget && !appTarget
+            ? currentAdminSettings?.website_announcement_starts_at
+            : currentAdminSettings?.announcement_starts_at,
+        );
+        document.querySelector("#announcement-ends-at").value = toLocalDateTimeInput(
+          siteTarget && !appTarget
+            ? currentAdminSettings?.website_announcement_ends_at
+            : currentAdminSettings?.announcement_ends_at,
+        );
         const help = document.querySelector("#announcement-target-help");
         help.textContent = target === "website"
           ? "Der Hinweis erscheint als Banner auf der öffentlichen Website. Er wird nicht per E-Mail oder Push versendet."
@@ -825,6 +876,8 @@
           ? "Der Hinweis erscheint in der iPhone-App. Wähle „Nur Website“, wenn er auf der öffentlichen Seite erscheinen soll."
           : "Wähle zuerst ausdrücklich das Ziel. Ein Website-Hinweis erscheint als Banner auf der öffentlichen Website.";
       }
+
+      window.setInterval(refreshAnnouncementStateLabels, 30_000);
 
       async function loadInvoiceWorkspace() {
         setStatus(invoiceStatus, "Rechnungsdaten werden geladen …");
@@ -2332,9 +2385,16 @@
       document.querySelector("#save-announcement").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         const target = document.querySelector("#announcement-target").value;
+        const startsAt = fromLocalDateTimeInput(document.querySelector("#announcement-starts-at").value);
+        const endsAt = fromLocalDateTimeInput(document.querySelector("#announcement-ends-at").value);
         if (!target) {
           setStatus(announcementStatus, "Bitte wähle zuerst „Nur Website“, „Nur iPhone-App“ oder „App und Website“ aus.", "error");
           document.querySelector("#announcement-target").focus();
+          return;
+        }
+        if (startsAt === undefined || endsAt === undefined ||
+            (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt))) {
+          setStatus(announcementStatus, "Bitte prüfe Start- und Endzeit. Das Ende muss nach dem Start liegen.", "error");
           return;
         }
         setBusy(button, true);
@@ -2345,20 +2405,21 @@
             enabled: document.querySelector("#announcement-enabled").checked,
             title: document.querySelector("#announcement-title").value,
             message: document.querySelector("#announcement-message").value,
+            startsAt,
+            endsAt,
           });
           Object.assign(currentAdminSettings, settings);
           loadAnnouncementTarget(target);
-          setStatus(
-            announcementStatus,
-            document.querySelector("#announcement-enabled").checked
-              ? target === "website"
-                ? "Website-Broadcast ist gespeichert und wird auf der öffentlichen Website spätestens nach einer Minute angezeigt."
-                : target === "both"
-                ? "Broadcast ist für App und Website gespeichert."
-                : "App-Broadcast ist gespeichert."
-              : "Broadcast für das ausgewählte Ziel ausgeschaltet.",
-            "success",
-          );
+          const enabled = document.querySelector("#announcement-enabled").checked;
+          const schedule = !enabled
+            ? "ausgeschaltet"
+            : startsAt && new Date(startsAt) > new Date()
+            ? `geplant ab ${formatDate(startsAt)}`
+            : endsAt
+            ? `aktiv bis ${formatDate(endsAt)}`
+            : "sofort aktiv";
+          const targetLabel = target === "website" ? "Website" : target === "both" ? "App und Website" : "App";
+          setStatus(announcementStatus, `Broadcast für ${targetLabel} gespeichert: ${schedule}.`, "success");
         } catch (error) {
           setStatus(announcementStatus, error.message, "error");
         } finally {
