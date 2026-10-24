@@ -238,7 +238,7 @@
             <label>Nachricht<textarea id="announcement-message" maxlength="500"></textarea></label>
             <label>Hinweis ab (leer = sofort)<input id="announcement-starts-at" type="datetime-local"></label>
             <label>Hinweis beenden am (leer = kein automatisches Ende)<input id="announcement-ends-at" type="datetime-local"></label>
-            <p class="notice">Geplante Zeiten gelten in deiner lokalen Zeitzone. Nach dem Endzeitpunkt wird der Hinweis automatisch ausgeblendet; du musst ihn nicht manuell abschalten.</p>
+            <p class="notice">Geplante Zeiten gelten in deiner lokalen Zeitzone. Website-Zeitpläne werden automatisch angewendet. Für App-Zeitpläne ist zuerst eine aktualisierte iPhone-App-Version nötig; bis dahin bitte für geplante Hinweise „Nur Website“ wählen.</p>
             <button id="save-announcement" type="button">Broadcast speichern</button>
           </div>
         </div>
@@ -2395,6 +2395,10 @@
         if (startsAt === undefined || endsAt === undefined ||
             (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt))) {
           setStatus(announcementStatus, "Bitte prüfe Start- und Endzeit. Das Ende muss nach dem Start liegen.", "error");
+          return;
+        }
+        if ((target === "app" || target === "both") && (startsAt || endsAt)) {
+          setStatus(announcementStatus, "Geplante Zeiten funktionieren für die iPhone-App erst nach einem App-Update. Wähle „Nur Website“ oder entferne Start- und Endzeit.", "error");
           return;
         }
         setBusy(button, true);
