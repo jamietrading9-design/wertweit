@@ -18,7 +18,7 @@
     .brand { font-size: 16px; font-weight: 700; letter-spacing: .02em; }
     .brand small { display: block; margin-top: 3px; color: var(--lime); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
     .bar a { color: white; font-size: 12px; }
-    main { width: min(1120px, calc(100% - 40px)); margin: 48px auto; }
+    main { width: min(1280px, calc(100% - 40px)); margin: 36px auto 60px; }
     h1, h2 { margin: 0; font-family: Fraunces, Georgia, serif; font-weight: 500; }
     h1 { font-size: clamp(36px, 6vw, 54px); }
     h2 { font-size: 27px; }
@@ -92,6 +92,11 @@
     .person-card-tag { padding: 3px 8px; border-radius: 999px; background: #eef2ed; color: #536057; font-size: 10px; font-weight: 700; }
     .person-card-tag.pro { background: #edf3d1; color: #475c16; }
     .person-priority-notes { margin: 18px 0; padding: 18px; border: 1px solid #d9e2d7; background: #f8faf6; }
+    .simulator-preview { display: grid; gap: 12px; margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+    .simulator-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+    .simulator-tag { padding: 5px 9px; border-radius: 999px; background: #e7f0e9; color: var(--leaf); font-size: 11px; font-weight: 700; }
+    .simulator-tag.warn { background: #fff3d9; color: #765313; }
+    .simulator-tag.off { background: #eef0ed; color: var(--muted); }
     .person-priority-notes h3 { margin: 0; color: var(--forest); }
     .person-priority-notes .notice { margin: 8px 0 12px; }
     .invoice-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; margin-top: 18px; }
@@ -106,7 +111,10 @@
     .invoice-customer-form summary { cursor: pointer; font-size: 13px; font-weight: 700; }
     .invoice-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
     .invoice-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; font-size: 12px; }
-    .admin-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 22px; }
+    .admin-shell { display: grid; grid-template-columns: minmax(190px, 220px) minmax(0, 1fr); align-items: start; gap: 20px; }
+    .admin-content { min-width: 0; }
+    .admin-content > [data-admin-page] { margin-top: 0; }
+    .admin-nav { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 0; }
     .admin-nav-group { display: grid; align-content: start; gap: 5px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.8); }
     .admin-nav-label { padding: 0 8px 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
     .card { border-radius: 18px; box-shadow: 0 12px 34px rgba(11, 43, 36, .045); }
@@ -115,13 +123,22 @@
     button { border-radius: 10px; transition: background .18s ease, transform .18s ease, box-shadow .18s ease; }
     button:not(:disabled):hover { box-shadow: 0 5px 14px rgba(11, 43, 36, .12); transform: translateY(-1px); }
     button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid rgba(28, 106, 79, .45); outline-offset: 3px; }
-    .admin-nav { position: sticky; top: 8px; z-index: 5; padding: 8px 0; background: rgba(244, 245, 239, .94); backdrop-filter: blur(12px); }
+    .admin-nav { position: sticky; top: 12px; z-index: 5; max-height: calc(100vh - 24px); overflow-y: auto; padding: 0; background: transparent; }
     .admin-nav button { width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11px; text-align: left; }
     .admin-nav button[aria-current="page"] { background: var(--leaf); color: white; box-shadow: 0 4px 12px rgba(28, 106, 79, .2); }
     .admin-nav button:not([aria-current="page"]):hover { border-color: var(--line); background: white; color: var(--forest); }
     .announcement-target-status { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .announcement-target-status span { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #f6f8f4; color: var(--muted); font-size: 11px; font-weight: 700; }
     .announcement-target-status span.active { border-color: #c6d99f; background: #edf3d1; color: #475c16; }
+    .broadcast-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+    .broadcast-item { display: grid; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcf9; }
+    .broadcast-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .broadcast-item-heading strong { color: var(--forest); font-size: 14px; }
+    .broadcast-state { padding: 5px 9px; border-radius: 999px; background: #eef0ed; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .broadcast-state.active { background: #edf3d1; color: #475c16; }
+    .broadcast-content { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .broadcast-content strong { display: block; margin-bottom: 3px; color: var(--ink); }
+    .broadcast-item button { justify-self: start; min-height: 36px; font-size: 11px; }
     .announcement-compose { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: 16px; align-items: start; margin-top: 16px; }
     .announcement-compose-fields { display: grid; gap: 12px; }
     .announcement-compose-fields textarea { min-height: 110px; }
@@ -142,15 +159,18 @@
     [hidden] { display: none !important; }
     @media (max-width: 600px) {
       .bar { min-height: 64px; padding: 0 18px; }
-      main { width: min(100% - 28px, 1120px); margin: 30px auto; }
+      main { width: min(100% - 28px, 1280px); margin: 24px auto 40px; }
       .card { padding: 19px; }
       .toolbar { align-items: flex-start; flex-direction: column; }
       .card-heading { align-items: flex-start; flex-direction: column; }
       .invoice-fields .wide { grid-column: auto; }
-      .admin-nav { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .announcement-compose { grid-template-columns: 1fr; }
+      .broadcast-overview { grid-template-columns: 1fr; }
     }
-    @media (min-width: 601px) and (max-width: 900px) { .admin-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 900px) {
+      .admin-shell { grid-template-columns: 1fr; gap: 14px; }
+      .admin-nav { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; overflow: visible; }
+    }
   </style>
 </head>
 <body>
@@ -175,13 +195,15 @@
         <div><h1 id="admin-page-title">Admin-Dashboard</h1><p id="admin-page-description" class="intro">Kennzahlen und den Zustand der App im Blick behalten.</p><p id="admin-action-status" class="status" role="status"></p></div>
         <button id="logout-button" class="secondary" type="button">Abmelden</button>
       </div>
-      <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
-        <div class="admin-nav-group"><span class="admin-nav-label">Übersicht</span><button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button><button type="button" data-admin-tab="activity">Aktivitätsverlauf</button></div>
-        <div class="admin-nav-group"><span class="admin-nav-label">Konten</span><button type="button" data-admin-tab="people">Personen</button><button type="button" data-admin-tab="database">Datenbank &amp; Zugriff</button><button type="button" data-admin-tab="customers">Rechnungskunden</button></div>
-        <div class="admin-nav-group"><span class="admin-nav-label">Kommunikation</span><button type="button" data-admin-tab="email">E-Mail &amp; Rundmails</button><button type="button" data-admin-tab="support">Support-Postfach</button></div>
-        <div class="admin-nav-group"><span class="admin-nav-label">Abrechnung</span><button type="button" data-admin-tab="invoices">App-Rechnungen</button><button type="button" data-admin-tab="private">Private Verkäufe</button></div>
-        <div class="admin-nav-group"><span class="admin-nav-label">Betrieb</span><button type="button" data-admin-tab="settings">App &amp; Website</button></div>
-      </nav>
+      <div class="admin-shell">
+        <nav id="admin-navigation" class="admin-nav" aria-label="Adminbereiche">
+          <div class="admin-nav-group"><span class="admin-nav-label">Übersicht</span><button type="button" data-admin-tab="dashboard" aria-current="page">Dashboard</button><button type="button" data-admin-tab="activity">Aktivitätsverlauf</button></div>
+          <div class="admin-nav-group"><span class="admin-nav-label">Nutzer &amp; Konten</span><button type="button" data-admin-tab="people">Personen</button><button type="button" data-admin-tab="database">Konten &amp; Zugriff</button></div>
+          <div class="admin-nav-group"><span class="admin-nav-label">Kommunikation</span><button type="button" data-admin-tab="support">Support-Postfach</button><button type="button" data-admin-tab="email">E-Mail &amp; Rundmails</button></div>
+          <div class="admin-nav-group"><span class="admin-nav-label">Abrechnung</span><button type="button" data-admin-tab="invoices">Rechnungen</button><button type="button" data-admin-tab="customers">Rechnungskunden</button><button type="button" data-admin-tab="private">Private Verkäufe</button></div>
+          <div class="admin-nav-group"><span class="admin-nav-label">System</span><button type="button" data-admin-tab="settings">App &amp; Website</button><button type="button" data-admin-tab="simulator">Simulator</button></div>
+        </nav>
+        <div class="admin-content">
       <section class="card" data-admin-page="dashboard" aria-labelledby="metrics-title">
         <div class="card-heading"><h2 id="metrics-title">App-Kennzahlen</h2><button id="refresh-metrics" class="secondary" type="button">Aktualisieren</button></div>
         <p class="intro">App-Starts werden pro angemeldetem Konto höchstens einmal innerhalb von 30 Minuten gezählt. Werte beginnen nach dem Update der App zu wachsen.</p>
@@ -196,6 +218,50 @@
           <div class="metric"><strong id="metric-open-tickets">–</strong><span>Offene Support-Tickets</span></div>
           <div class="metric"><strong id="metric-opens-365d">–</strong><span>App-Sitzungen der letzten 365 Tage</span></div>
         </div>
+      </section>
+      <section class="card" data-admin-page="dashboard" aria-labelledby="broadcast-overview-title">
+        <div class="card-heading">
+          <div><h2 id="broadcast-overview-title">Broadcast-Nachrichten</h2><p class="intro">Aktueller Status für iPhone-App und Website. Hier kannst du aktive oder geplante Hinweise direkt ausschalten.</p></div>
+          <button id="refresh-broadcasts" class="secondary" type="button">Aktualisieren</button>
+        </div>
+        <div class="broadcast-overview" aria-live="polite">
+          <article class="broadcast-item">
+            <div class="broadcast-item-heading"><strong>iPhone-App</strong><span id="broadcast-app-state" class="broadcast-state">Wird geladen …</span></div>
+            <p class="broadcast-content"><strong id="broadcast-app-title">Broadcast wird geladen …</strong><span id="broadcast-app-message"></span></p>
+            <button type="button" class="secondary" data-disable-announcement="app" hidden>App-Broadcast deaktivieren</button>
+          </article>
+          <article class="broadcast-item">
+            <div class="broadcast-item-heading"><strong>Website</strong><span id="broadcast-website-state" class="broadcast-state">Wird geladen …</span></div>
+            <p class="broadcast-content"><strong id="broadcast-website-title">Broadcast wird geladen …</strong><span id="broadcast-website-message"></span></p>
+            <button type="button" class="secondary" data-disable-announcement="website" hidden>Website-Broadcast deaktivieren</button>
+          </article>
+        </div>
+        <p id="broadcast-overview-status" class="status" role="status"></p>
+      </section>
+      <section class="card" data-admin-page="simulator" aria-labelledby="simulator-title" hidden>
+        <h2 id="simulator-title">App- und Abo-Simulator</h2>
+        <p class="intro">Vorschau verschiedener Konto-, Demo- und Abozustände für manuelle Tests.</p>
+        <p class="notice">Diese Vorschau ändert keine echten Konten, App-Zugänge, Apple-Abos oder Zahlungen. Simulator-Käufe lösen keine Abbuchung aus.</p>
+        <div class="invoice-fields">
+          <label>App-Stufe
+            <select id="sim-tier"><option value="free">Kostenlos</option><option value="calculator">Rechner</option><option value="travel">Reise</option><option value="premium">Premium</option></select>
+          </label>
+          <label>Kontostatus
+            <select id="sim-account"><option value="guest">Gast ohne Konto</option><option value="active">Aktives Konto</option><option value="unconfirmed">E-Mail unbestätigt</option><option value="blocked">Konto gesperrt</option></select>
+          </label>
+          <label>Demo-Pro
+            <select id="sim-demo"><option value="none">Nicht aktiviert</option><option value="active">Aktiv (7 Tage)</option><option value="expired">Abgelaufen</option></select>
+          </label>
+          <label>Apple-Abozustand
+            <select id="sim-subscription"><option value="none">Kein Apple-Abo</option><option value="active">Aktiv</option><option value="trial">Kostenlose Testphase aktiv</option><option value="cancelled">Gekündigt, noch aktiv</option><option value="expired">Abgelaufen</option><option value="refunded">Widerrufen / erstattet</option></select>
+          </label>
+        </div>
+        <div class="simulator-preview" aria-live="polite">
+          <strong id="sim-state-summary">Vorschau wird geladen …</strong>
+          <div id="sim-state-tags" class="simulator-tags"></div>
+          <div><strong>Verfügbare Funktionen</strong><ul id="sim-feature-list"></ul></div>
+        </div>
+        <p id="simulator-status" class="status" role="status">Nur lokale Vorschau in dieser Admin-Webseite.</p>
       </section>
       <section class="card" data-admin-page="settings" aria-labelledby="maintenance-title">
         <div class="card-heading"><h2 id="maintenance-title">Wartungsmodus</h2><span id="maintenance-state" class="status"></span></div>
@@ -558,6 +624,8 @@
         <p id="activity-status" class="status" role="status"></p>
         <div id="activity-list" class="activity-list"></div>
       </section>
+        </div>
+      </div>
     </section>
   </main>
   <dialog id="invoice-customer-dialog">
@@ -779,6 +847,7 @@
       function setAdminPage(page, activeTab = page) {
         const pageText = {
           dashboard: ["Admin-Dashboard", "Kennzahlen und den Zustand der App im Blick behalten."],
+          simulator: ["Simulator", "App-Stufen sowie Konto-, Demo- und Abozustände unverbindlich vorschauen."],
           people: ["Personen", "App-Konten einzeln finden und ihre Personenakten öffnen."],
           database: ["Datenbank", "Konten in Supabase verwalten und neue App-Nutzer einladen."],
           email: ["E-Mail", "Entwürfe erstellen, prüfen und gezielt versenden."],
@@ -800,6 +869,63 @@
           if (button.dataset.adminTab === activeTab) button.setAttribute("aria-current", "page");
           else button.removeAttribute("aria-current");
         }
+      }
+
+      function renderAppSimulator() {
+        const tier = document.querySelector("#sim-tier").value;
+        const account = document.querySelector("#sim-account").value;
+        const demo = document.querySelector("#sim-demo").value;
+        const subscription = document.querySelector("#sim-subscription").value;
+        const tierNames = { free: "Kostenlos", calculator: "Rechner", travel: "Reise", premium: "Premium" };
+        const accountNames = { guest: "Gast ohne Konto", active: "Aktives Konto", unconfirmed: "E-Mail unbestätigt", blocked: "Konto gesperrt" };
+        const demoNames = { none: "Demo nicht aktiviert", active: "Demo-Pro aktiv", expired: "Demo-Pro abgelaufen" };
+        const subscriptionNames = {
+          none: "Kein Apple-Abo",
+          active: "Apple-Abo aktiv",
+          trial: "Kostenlose Testphase aktiv",
+          cancelled: "Gekündigt, noch aktiv",
+          expired: "Apple-Abo abgelaufen",
+          refunded: "Widerrufen / erstattet",
+        };
+        const tierValues = { free: 0, calculator: 1, travel: 2, premium: 3 };
+        const hasAppleAccess = ["active", "trial", "cancelled"].includes(subscription);
+        const hasDemoAccess = demo === "active" && account === "active";
+        const effectiveTier = hasDemoAccess ? 3 : hasAppleAccess ? tierValues[tier] : 0;
+        const isBlocked = account === "blocked";
+        const features = isBlocked ? ["App-Funktionen gesperrt"] : [
+          "Währungsumrechnung und kostenloser 7-Tage-Kursverlauf",
+          ...(effectiveTier >= 1 ? ["Gebührenvergleich und Rückwärtsrechner"] : []),
+          ...(effectiveTier >= 2 ? ["Reisebudget, Ausgabenkategorien und längere Kursverläufe"] : []),
+          ...(effectiveTier >= 3 ? ["Wallet, Wechselstellensuche, Favoriten, Kursalarme und CSV-/PDF-Export"] : []),
+          ...(account === "guest" ? ["Gastmodus: kontogebundene Funktionen nicht verfügbar"] : []),
+          ...(account === "unconfirmed" ? ["E-Mail bestätigen, um kontogebundene Funktionen freizuschalten"] : []),
+        ];
+        const summary = document.querySelector("#sim-state-summary");
+        summary.textContent = `${tierNames[tier]} · ${accountNames[account]} · ${demoNames[demo]} · ${subscriptionNames[subscription]}`;
+        const tags = document.querySelector("#sim-state-tags");
+        tags.replaceChildren();
+        const tagLabels = [
+          [isBlocked ? "App gesperrt" : `Effektiver Zugriff: ${["Kostenlos", "Rechner", "Reise", "Premium"][effectiveTier]}`, isBlocked],
+          [hasDemoAccess ? "Demo-Pro freigeschaltet" : "Keine Demo-Freigabe", !hasDemoAccess],
+          [hasAppleAccess ? subscriptionNames[subscription] : "Kein aktiver StoreKit-Zugriff", !hasAppleAccess],
+        ];
+        for (const [label, isOff] of tagLabels) {
+          const tag = document.createElement("span");
+          tag.className = `simulator-tag${isOff ? " off" : ""}`;
+          tag.textContent = label;
+          tags.append(tag);
+        }
+        const list = document.querySelector("#sim-feature-list");
+        list.replaceChildren();
+        for (const feature of features) {
+          const item = document.createElement("li");
+          item.textContent = feature;
+          list.append(item);
+        }
+        const message = demo === "active" && account !== "active"
+          ? "Demo-Pro wird erst bei einem bestätigten Konto verfügbar."
+          : "Nur lokale Vorschau in dieser Admin-Webseite; echte Nutzer und Zugänge bleiben unverändert.";
+        setStatus(document.querySelector("#simulator-status"), message, demo === "active" && account !== "active" ? "error" : "");
       }
 
       async function loadSettings(settings) {
@@ -826,21 +952,46 @@
       function refreshAnnouncementStateLabels() {
         const appState = document.querySelector("#announcement-app-state");
         const websiteState = document.querySelector("#announcement-website-state");
-        if (!appState || !websiteState) return;
+        if (!appState || !websiteState || !currentAdminSettings) return;
+        const appEnabled = currentAdminSettings.announcement_enabled === true;
+        const websiteEnabled = currentAdminSettings.website_announcement_enabled === true;
         const appSchedule = announcementState(
-          currentAdminSettings?.announcement_enabled === true,
-          currentAdminSettings?.announcement_starts_at,
-          currentAdminSettings?.announcement_ends_at,
+          appEnabled,
+          currentAdminSettings.announcement_starts_at,
+          currentAdminSettings.announcement_ends_at,
         );
         const websiteSchedule = announcementState(
-          currentAdminSettings?.website_announcement_enabled === true,
-          currentAdminSettings?.website_announcement_starts_at,
-          currentAdminSettings?.website_announcement_ends_at,
+          websiteEnabled,
+          currentAdminSettings.website_announcement_starts_at,
+          currentAdminSettings.website_announcement_ends_at,
         );
-        appState.textContent = `App: ${appSchedule.label}`;
-        websiteState.textContent = `Website: ${websiteSchedule.label}`;
+        appState.textContent = `App: ${appEnabled ? appSchedule.label : "deaktiviert"}`;
+        websiteState.textContent = `Website: ${websiteEnabled ? websiteSchedule.label : "deaktiviert"}`;
         appState.classList.toggle("active", appSchedule.active);
         websiteState.classList.toggle("active", websiteSchedule.active);
+
+        const appOverviewState = document.querySelector("#broadcast-app-state");
+        const websiteOverviewState = document.querySelector("#broadcast-website-state");
+        const appTitle = document.querySelector("#broadcast-app-title");
+        const websiteTitle = document.querySelector("#broadcast-website-title");
+        const appMessage = document.querySelector("#broadcast-app-message");
+        const websiteMessage = document.querySelector("#broadcast-website-message");
+        const appDisable = document.querySelector('[data-disable-announcement="app"]');
+        const websiteDisable = document.querySelector('[data-disable-announcement="website"]');
+        appOverviewState.textContent = appEnabled ? appSchedule.label : "Deaktiviert";
+        websiteOverviewState.textContent = websiteEnabled ? websiteSchedule.label : "Deaktiviert";
+        appOverviewState.classList.toggle("active", appSchedule.active);
+        websiteOverviewState.classList.toggle("active", websiteSchedule.active);
+        appTitle.textContent = appEnabled
+          ? currentAdminSettings.announcement_title || "Ohne Überschrift"
+          : "Kein Broadcast aktiviert";
+        websiteTitle.textContent = websiteEnabled
+          ? currentAdminSettings.website_announcement_title || "Ohne Überschrift"
+          : "Kein Broadcast aktiviert";
+        appMessage.textContent = appEnabled ? currentAdminSettings.announcement_message : "";
+        websiteMessage.textContent = websiteEnabled ? currentAdminSettings.website_announcement_message : "";
+        appDisable.hidden = !appEnabled;
+        websiteDisable.hidden = !websiteEnabled;
       }
 
       function loadAnnouncementTarget(target) {
@@ -2382,9 +2533,67 @@
         loadAnnouncementTarget(event.currentTarget.value);
       });
 
+      async function deactivateAnnouncement(target, button) {
+        const appTarget = target === "app";
+        const enabledKey = appTarget ? "announcement_enabled" : "website_announcement_enabled";
+        if (currentAdminSettings?.[enabledKey] !== true) return;
+
+        const overviewStatus = document.querySelector("#broadcast-overview-status");
+        setBusy(button, true);
+        setStatus(overviewStatus, "Broadcast wird deaktiviert …");
+        try {
+          const { settings } = await callAdmin("update-app-announcement", {
+            target,
+            enabled: false,
+            title: appTarget
+              ? currentAdminSettings.announcement_title
+              : currentAdminSettings.website_announcement_title,
+            message: appTarget
+              ? currentAdminSettings.announcement_message
+              : currentAdminSettings.website_announcement_message,
+          });
+          Object.assign(currentAdminSettings, settings);
+          refreshAnnouncementStateLabels();
+          const selectedTarget = document.querySelector("#announcement-target").value;
+          if (selectedTarget === target || selectedTarget === "both") {
+            loadAnnouncementTarget(selectedTarget);
+          }
+          setStatus(overviewStatus, `Broadcast für ${appTarget ? "die iPhone-App" : "die Website"} wurde deaktiviert.`, "success");
+        } catch (error) {
+          setStatus(overviewStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      for (const button of document.querySelectorAll("[data-disable-announcement]")) {
+        button.addEventListener("click", () => {
+          deactivateAnnouncement(button.dataset.disableAnnouncement, button);
+        });
+      }
+
+      document.querySelector("#refresh-broadcasts").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        const overviewStatus = document.querySelector("#broadcast-overview-status");
+        setBusy(button, true);
+        setStatus(overviewStatus, "Broadcasts werden aktualisiert …");
+        try {
+          const { settings } = await callAdmin("get-settings");
+          Object.assign(currentAdminSettings, settings);
+          refreshAnnouncementStateLabels();
+          loadAnnouncementTarget(document.querySelector("#announcement-target").value);
+          setStatus(overviewStatus, "Broadcast-Status wurde aktualisiert.", "success");
+        } catch (error) {
+          setStatus(overviewStatus, error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
       document.querySelector("#save-announcement").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         const target = document.querySelector("#announcement-target").value;
+        const enabled = document.querySelector("#announcement-enabled").checked;
         const startsAt = fromLocalDateTimeInput(document.querySelector("#announcement-starts-at").value);
         const endsAt = fromLocalDateTimeInput(document.querySelector("#announcement-ends-at").value);
         if (!target) {
@@ -2392,12 +2601,12 @@
           document.querySelector("#announcement-target").focus();
           return;
         }
-        if (startsAt === undefined || endsAt === undefined ||
-            (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt))) {
+        if (enabled && (startsAt === undefined || endsAt === undefined ||
+            (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)))) {
           setStatus(announcementStatus, "Bitte prüfe Start- und Endzeit. Das Ende muss nach dem Start liegen.", "error");
           return;
         }
-        if ((target === "app" || target === "both") && (startsAt || endsAt)) {
+        if (enabled && (target === "app" || target === "both") && (startsAt || endsAt)) {
           setStatus(announcementStatus, "Geplante Zeiten funktionieren für die iPhone-App erst nach einem App-Update. Wähle „Nur Website“ oder entferne Start- und Endzeit.", "error");
           return;
         }
@@ -2406,7 +2615,7 @@
         try {
           const { settings } = await callAdmin("update-app-announcement", {
             target,
-            enabled: document.querySelector("#announcement-enabled").checked,
+            enabled,
             title: document.querySelector("#announcement-title").value,
             message: document.querySelector("#announcement-message").value,
             startsAt,
@@ -2414,7 +2623,6 @@
           });
           Object.assign(currentAdminSettings, settings);
           loadAnnouncementTarget(target);
-          const enabled = document.querySelector("#announcement-enabled").checked;
           const schedule = !enabled
             ? "ausgeschaltet"
             : startsAt && new Date(startsAt) > new Date()
@@ -2660,6 +2868,10 @@
           if (requestedTab === "activity") loadAdminActivity();
         });
       }
+      for (const selector of ["#sim-tier", "#sim-account", "#sim-demo", "#sim-subscription"]) {
+        document.querySelector(selector).addEventListener("change", renderAppSimulator);
+      }
+      renderAppSimulator();
       document.querySelector("#refresh-activity").addEventListener("click", loadAdminActivity);
       document.querySelector("#invoice-customer").addEventListener("change", (event) => {
         selectedInvoiceCustomer = invoiceCustomers.find((customer) => customer.id === event.currentTarget.value) ??
