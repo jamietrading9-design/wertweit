@@ -531,7 +531,7 @@
         <p id="users-status" class="status" role="status"></p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Auswahl</th><th>E-Mail</th><th>Registriert</th><th>Letzte Anmeldung</th><th>E-Mail bestätigt</th><th>Zugriff</th><th>Admin-Pro bis</th><th>Aktionen</th></tr></thead>
+            <thead><tr><th>Auswahl</th><th>E-Mail</th><th>Registriert</th><th>Letzte Anmeldung</th><th>E-Mail bestätigt</th><th>Zugriff</th><th>Sperrung bis</th><th>Admin-Pro bis</th><th>Aktionen</th></tr></thead>
             <tbody id="users-body"></tbody>
           </table>
         </div>
@@ -692,6 +692,7 @@
     let privateSaleReceipts = [];
     let selectedInvoiceCustomer = null;
     let currentAdminSettings = null;
+    let currentAdminId = null;
     let invoicePage = 1;
     let invoiceTotal = 0;
     let customerPage = 1;
@@ -837,6 +838,11 @@
       }
 
       async function showDashboard() {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          throw new Error("Die Admin-Anmeldung konnte nicht geprüft werden. Bitte melde dich erneut an.");
+        }
+        currentAdminId = user.id;
         const { settings } = await callAdmin("get-settings");
         loginView.hidden = true;
         dashboard.hidden = false;
@@ -2174,6 +2180,12 @@
             accessCell.textContent = user.blocked ? "Gesperrt" : "Aktiv";
             row.append(accessCell);
 
+            const blockedUntilCell = document.createElement("td");
+            blockedUntilCell.textContent = user.automaticBlockedUntil
+              ? formatDate(user.automaticBlockedUntil)
+              : user.blocked ? "Manuelle Sperre" : "–";
+            row.append(blockedUntilCell);
+
             const proCell = document.createElement("td");
             proCell.textContent = user.proUntil && new Date(user.proUntil) > new Date()
               ? formatDate(user.proUntil)
@@ -2234,7 +2246,14 @@
             const blockButton = document.createElement("button");
             blockButton.type = "button";
             blockButton.className = "secondary";
-            blockButton.textContent = user.blocked ? "Entsperren" : "Sperren";
+            const isCurrentAdmin = user.id === currentAdminId;
+            blockButton.textContent = user.blocked
+              ? "Entsperren"
+              : isCurrentAdmin ? "Eigenes Konto" : "Sperren";
+            blockButton.disabled = isCurrentAdmin && !user.blocked;
+            if (blockButton.disabled) {
+              blockButton.title = "Das eigene Admin-Konto kann nicht gesperrt werden.";
+            }
             blockButton.addEventListener("click", async () => {
               const action = user.blocked ? "entsperren" : "sperren";
               if (!window.confirm(`${user.email} wirklich ${action}?`)) return;
@@ -2246,7 +2265,7 @@
               } catch (error) {
                 setStatus(usersStatus, error.message, "error");
               } finally {
-                blockButton.disabled = false;
+                blockButton.disabled = isCurrentAdmin && !user.blocked;
               }
             });
             actions.append(expiry, grantButton, revokeButton, blockButton);
