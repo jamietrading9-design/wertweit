@@ -383,7 +383,7 @@ Deno.serve(async (request) => {
       const accessResults = await Promise.all(
         Array.from({ length: Math.ceil(allUsers.length / 500) }, (_, index) =>
           supabase.from("app_user_access")
-            .select("user_id, blocked, pro_until")
+            .select("user_id, blocked, automatic_blocked_until, pro_until")
             .in("user_id", allUsers.slice(index * 500, (index + 1) * 500).map((user) => user.id))
         ),
       );
@@ -435,7 +435,7 @@ Deno.serve(async (request) => {
       const userIds = users.map((user) => user.id);
       const { data, error: accessError } = await supabase
         .from("app_user_access")
-        .select("user_id, blocked, pro_until")
+        .select("user_id, blocked, automatic_blocked_until, pro_until")
         .in("user_id", userIds);
       if (accessError) {
         console.error("Could not load account access", accessError.message);
@@ -456,6 +456,7 @@ Deno.serve(async (request) => {
         lastSignInAt: user.last_sign_in_at,
         emailConfirmedAt: user.email_confirmed_at,
         blocked: accessByUser.get(user.id)?.blocked ?? false,
+        automaticBlockedUntil: accessByUser.get(user.id)?.automatic_blocked_until ?? null,
         proUntil: accessByUser.get(user.id)?.pro_until ?? null,
       })),
       page,
@@ -796,19 +797,19 @@ Deno.serve(async (request) => {
         typeof payload.blocked !== "boolean") {
       return respond({ error: "Invalid account status" }, 400);
     }
-    if (payload.userId === authData.user.id) {
+    if (payload.blocked && payload.userId === authData.user.id) {
       return respond({ error: "You cannot suspend your own admin account" }, 400);
     }
     const { data: target, error: targetError } = await supabase.auth.admin.getUserById(payload.userId);
     if (targetError || !target.user) {
       return respond({ error: "Account not found" }, 404);
     }
-    if (target.user.app_metadata?.role === "admin") {
+    if (payload.blocked && target.user.app_metadata?.role === "admin") {
       return respond({ error: "Admin accounts cannot be suspended from this dashboard" }, 403);
     }
     const { data: currentAccess, error: currentAccessError } = await supabase
       .from("app_user_access")
-      .select("pro_until")
+      .select("pro_until, automatic_blocked_until")
       .eq("user_id", payload.userId)
       .maybeSingle();
     if (currentAccessError) {
@@ -827,6 +828,7 @@ Deno.serve(async (request) => {
       .upsert({
         user_id: payload.userId,
         blocked: payload.blocked,
+        automatic_blocked_until: null,
         pro_until: currentAccess?.pro_until ?? null,
         updated_at: new Date().toISOString(),
         updated_by: authData.user.id,
@@ -834,6 +836,16 @@ Deno.serve(async (request) => {
     if (error) {
       console.error("Could not update account access", error.message);
       return respond({ error: "Account access could not be updated" }, 502);
+    }
+    if (!payload.blocked) {
+      const { error: signalResetError } = await supabase
+        .from("security_signal_windows")
+        .delete()
+        .eq("user_id", payload.userId);
+      if (signalResetError) {
+        console.error("Account was unlocked but its security signal window could not be reset", signalResetError.message);
+        return respond({ error: "Account was unlocked, but its security state could not be reset" }, 502);
+      }
     }
     return respond({ userId: payload.userId, blocked: payload.blocked });
   }
